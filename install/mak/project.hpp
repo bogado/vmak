@@ -2,58 +2,61 @@
 #include <concepts>
 #include <utility>
 #include <array>
+#include <ranges>
+#include <algorithm>
 
 namespace vb::mak {
 
 namespace prj {
 
-enum class stage : unsigned short {
+enum class stage : signed short {
+    FAILED = -1,
     CONFIG,
     BUILD,
-    DONE
+    INVALID,
+    DONE = 128,
 };
 
-enum class status : unsigned short {
+enum class status : signed short {
+    FAILED = -1,
     PENDING,
     STARTED,
-    DONE,
-    FAILED
+    DONE = 128,
 };
 
-template <typename ENUM_TYPE>
-concept enumeration = std::is_enumeration_v<ENUM_TYPE>;
+template <typename ENUM_T>
+requires std::is_enum_v<ENUM_T>
+constexpr inline auto operator <=>(const stage& a, const stage& b) {
+    return static_cast<std::underlying_type_t<ENUM_T>>(a) <=> static_cast<std::underlying_type_t<ENUM_T>>(b);
+};
 
-template <enumeration ENUM_TYPE>
-auto to_underling(enumeration en) {
-    return static_cast<std::to_underling_t<ENUM_TYPE>>(en);
-}
+static_assert(stage::CONFIG < stage::DONE);
+static_assert(status::DONE > status::FAILED);
 
-constexpr auto STAGES = to_underling(stage::DONE);
+constexpr auto STAGES = static_cast<unsigned>(stage::INVALID);
 
-struct state : std::array<status, STAGES> {
-    using storage = std::array<status, STAGES>;
+struct state {
+    std::array<status, STAGES> stages;
 
-    state()
-        : storage{}
-    {
-        std::ranges::fill(*this, PENDING);
+    constexpr status operator[](stage st) const {
+        return stages[static_cast<unsigned short>(st)];
     }
 
-    status& operator[](stage st) const {
-        return (*this)[static_cast<unsigned short>(st)];
-    }
+    constexpr stage next() const {
+        auto r = std::ranges::find_if(stages, [](const auto& s) -> bool {
+            return s > status::DONE;
+        });
 
+        if (r != stages.end()) {
+            return *r == status::DONE
+                ? stage::DONE
+                : stage::FAILED;
+        } else {
+            return static_cast<stage>(std::distance(stages.begin(), r));
+        }
+    }
+};
     
-};
-
-template <status::state >
-constexpr bool needs)
-
-namespace static_test {
-    static constexpr auto t = status::BUILD_DONE bitand status::CONFIG_STEP bitand status::BUILD_STEP;
-    static_assert(!needs<status::BUILD_STEP>(t));
-}
-
 template <typename PROJECT_T>
 concept is_project = std::is_default_constructible_v<PROJECT_T> 
     && std::constructible_from<std::filesystem::path>
@@ -61,11 +64,12 @@ concept is_project = std::is_default_constructible_v<PROJECT_T>
 {
     { prj.root() } ->  std::same_as<std::filesystem::path>;
     { prj.operator() } -> std::convertible_to<bool>;
-    { prj.status() } -> std::same_as<status>
+    { prj.status() } -> std::same_as<status>;
 };
 
-struct basic_project()
+struct basic_project
 {
 };
 
+}
 }
