@@ -5,4 +5,4 @@ add_executable(vbmak
     project.hpp
 )
 
-target_link_libraries(vbmak PRIVATE  fmt::fmt project_options basic_prj)
+target_link_libraries(vbmak PRIVATE fmt::fmt project_options basic_prj)
