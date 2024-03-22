@@ -67,7 +67,7 @@ auto as_stage(IMPL&& impl) {
         }
     };
 
-    return stage_impl{std::forward<IMPL>(impl)};
+    return std::unique_ptr<stage_impl>{std::move(impl)};
 }
 
 template <typename STAGE_T>
