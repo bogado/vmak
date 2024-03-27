@@ -92,9 +92,4 @@ struct basic_stage {
     }       
 };
 
-namespace test {
-
-    using namespace vb::literals;
-
-}
 }
