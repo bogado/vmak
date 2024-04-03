@@ -38,7 +38,7 @@ struct stage_type {
 };
 
 template <std::constructible_from<fs::path> IMPL>
-auto make_stage(IMPL&& impl) {
+auto as_stage(IMPL&& impl) {
     struct stage_impl final : stage_type {
         IMPL impl;
 
@@ -71,9 +71,9 @@ auto make_stage(IMPL&& impl) {
 }
 
 template <typename STAGE_T>
-concept is_stage = requires(STAGE_T stage, STAGE_T mutable_stage) {
+concept is_build_stage = requires(STAGE_T stage, STAGE_T mutable_stage) {
     requires std::constructible_from<STAGE_T, fs::path>; // This is the root of the project.
-    { make_stage(stage) } -> std::derived_from<stage_type>;
+    { as_stage(stage) } -> std::derived_from<stage_type>;
     { STAGE_T::is_project(fs::path{}) } -> std::convertible_to<bool>;
 };
 
@@ -115,7 +115,8 @@ struct basic_stage {
     }
 };
 
-static_assert(std::derived_from<stage_type, decltype(make_stage(std::declval<basic_stage<"make", "Makefile">>()))>);
-static_assert(is_stage<basic_stage<"make", "Makefile">>);
+//using make_stage = basic_stage<"make", "makefile">;
+
+static_assert(std::derived_from<decltype(as_stage(std::declval<basic_stage<"make", "Makefile">>())), stage_type>);
 
 }
