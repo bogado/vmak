@@ -1,3 +1,4 @@
+#include <type_traits>
 #include <util/execution.hpp>
 #include <util/filesystem.hpp>
 
@@ -7,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <ranges>
+#include <utility>
 
 namespace vb::mak {
 
@@ -33,7 +35,6 @@ struct stage_type {
     virtual fs::path root() const = 0;
     virtual fs::path work_dir() const = 0;
     virtual state status() const = 0;
-    virtual substages_type substages() const = 0;
     virtual void run() = 0;
 };
 
@@ -45,7 +46,7 @@ auto as_stage(IMPL&& impl) {
         stage_impl(IMPL&& root) :
             impl{std::move(root)}
         {}
-
+        
         fs::path root() const override {
             return impl.root();
         }
@@ -58,22 +59,18 @@ auto as_stage(IMPL&& impl) {
             return impl.status();
         }
 
-        stage_type::substages_type substages() const override {
-            return substages_type{};
-        }
-
         void run() override {
             impl.run();
         }
     };
 
-    return std::unique_ptr<stage_impl>{std::move(impl)};
+    return std::make_unique<stage_impl>(std::forward<IMPL>(impl));
 }
 
 template <typename STAGE_T>
 concept is_build_stage = requires(STAGE_T stage, STAGE_T mutable_stage) {
     requires std::constructible_from<STAGE_T, fs::path>; // This is the root of the project.
-    { as_stage(stage) } -> std::derived_from<stage_type>;
+    { *as_stage(stage) } -> std::derived_from<stage_type>;
     { STAGE_T::is_project(fs::path{}) } -> std::convertible_to<bool>;
 };
 
@@ -115,8 +112,9 @@ struct basic_stage {
     }
 };
 
-//using make_stage = basic_stage<"make", "makefile">;
+using make_stage = basic_stage<"make", "makefile">;
+using ninja_stage = basic_stage<"ninja", "build.ninja">;
 
-static_assert(std::derived_from<decltype(as_stage(std::declval<basic_stage<"make", "Makefile">>())), stage_type>);
-
+static_assert(as_stage(make_stage{fs::path{"/"}})->status() == stage_type::state::PENDING);
+static_assert(is_build_stage<make_stage>);
 }
