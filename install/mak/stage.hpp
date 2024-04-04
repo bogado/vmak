@@ -1,120 +1,112 @@
-#include <type_traits>
 #include <util/execution.hpp>
 #include <util/filesystem.hpp>
+#include <util/string.hpp>
 
-#include <concepts>
-#include <cstdint>
 #include <filesystem>
-#include <memory>
 #include <string>
-#include <ranges>
-#include <utility>
+#include <system_error>
+#include <type_traits>
+#include <concepts>
 
 namespace vb::mak {
 
-struct stage_type {
-    enum class state : std::int8_t {
-        PENDING = -1,
-        INVALID = 0,
+struct no_action{};
+
+template <typename ACTION_T>
+concept is_action = requires {
+    std::invocable<ACTION_T>;
+    std::same_as<std::invoke_result_t<ACTION_T>, std::error_code>;
+} or std::same_as<ACTION_T, no_action>;
+
+struct stage_base {
+    enum class state {
+        CREATED,
         STARTED,
         DONE,
-        BLOCKED,
-        NOT_REQUIRED,
-        FAILED
+        ERROR
     };
 
-    using substages_type = std::span<std::unique_ptr<stage_type>>;
+    state current_state = state::CREATED;
 
-    stage_type() = default;
-    stage_type(const stage_type&) = default;
-    stage_type(stage_type&&) = default;
-    stage_type& operator=(const stage_type&) = default;
-    stage_type& operator=(stage_type&&) = default;
+    stage_base() = default;
+    stage_base(const stage_base&) = default;
+    stage_base(stage_base&&) = default;
+    stage_base& operator=(const stage_base&) = default;
+    stage_base& operator=(stage_base&&) = default;
 
-    virtual ~stage_type() = default;
+    virtual ~stage_base() = default;
     virtual fs::path root() const = 0;
     virtual fs::path work_dir() const = 0;
-    virtual state status() const = 0;
-    virtual void run() = 0;
+
+    state status() const
+    {
+        return current_state;
+    }
+
+    state& status()
+    {
+        return current_state;
+    }
 };
-
-template <std::constructible_from<fs::path> IMPL>
-auto as_stage(IMPL&& impl) {
-    struct stage_impl final : stage_type {
-        IMPL impl;
-
-        stage_impl(IMPL&& root) :
-            impl{std::move(root)}
-        {}
-        
-        fs::path root() const override {
-            return impl.root();
-        }
-
-        fs::path work_dir() const override {
-            return impl.work_dir();
-        }
-
-        stage_type::state status() const override {
-            return impl.status();
-        }
-
-        void run() override {
-            impl.run();
-        }
-    };
-
-    return std::make_unique<stage_impl>(std::forward<IMPL>(impl));
-}
 
 template <typename STAGE_T>
-concept is_build_stage = requires(STAGE_T stage, STAGE_T mutable_stage) {
-    requires std::constructible_from<STAGE_T, fs::path>; // This is the root of the project.
-    { *as_stage(stage) } -> std::derived_from<stage_type>;
+concept is_build_stage = requires(STAGE_T stage) {
+    std::constructible_from<STAGE_T, fs::path> // This is the root of the project.
+    and std::derived_from<STAGE_T, stage_base>
+    and is_action<STAGE_T>;
     { STAGE_T::is_project(fs::path{}) } -> std::convertible_to<bool>;
+    { stage.next() } -> is_action;
 };
 
-template <static_string COMMAND, static_string CONFIG_FILE>
-struct basic_stage {
-    using state = stage_type::state;
-    using enum state;
+bool has_next(is_build_stage auto& stage) {
+    return std::same_as<std::invoke_result_t<decltype(stage.next())>, no_action>;
+}
 
-    stage_type::state current_status = PENDING;
+template <static_string COMMAND, static_string CONFIG_FILE>
+struct basic_stage : stage_base {
     fs::path prj_root;
 
     explicit basic_stage(fs::path _root) :
         prj_root{_root}
     {}
 
-    auto root() const {
+    fs::path root() const override
+    {
         return prj_root;
     }
 
-    auto work_dir() const {
+    fs::path work_dir() const override {
         return root();
     }
 
-    auto status() const {
-        return current_status;
-    }
-
-    void run() {
-        current_status = STARTED;
+    std::error_code operator() () {
+        status() = state::STARTED;
         auto run = execution{io_set::NONE};
-        run.execute(std::string{COMMAND.view()}, work_dir());
-        auto result = run.wait();
-        current_status = result == 0 ? DONE : FAILED;
+        int result = 0;
+        try {
+            run.execute(std::string{COMMAND.view()}, work_dir());
+            result = run.wait();
+            status() = result == 0 ? state::DONE : state::ERROR;
+        } catch (const std::system_error& error) {
+            status() = state::ERROR;
+            return error.code();
+        }
+        if (result != 0) {
+            return std::error_code(1, std::generic_category());
+        }
+        return std::error_code{};
     }
 
     static auto is_project(fs::path root) {
         static const auto config = fs::path{CONFIG_FILE.view()};
         return fs::is_regular_file(root / config);
     }
+
+    no_action next();
 };
 
 using make_stage = basic_stage<"make", "makefile">;
 using ninja_stage = basic_stage<"ninja", "build.ninja">;
 
-static_assert(as_stage(make_stage{fs::path{"/"}})->status() == stage_type::state::PENDING);
 static_assert(is_build_stage<make_stage>);
 }
