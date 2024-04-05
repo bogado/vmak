@@ -13,10 +13,10 @@ namespace vb::mak {
 struct no_action{};
 
 template <typename ACTION_T>
-concept is_action = requires {
-    std::invocable<ACTION_T>;
-    std::same_as<std::invoke_result_t<ACTION_T>, std::error_code>;
-} or std::same_as<ACTION_T, no_action>;
+concept is_action = (
+        std::is_invocable_v<ACTION_T>
+        && std::is_same_v<std::invoke_result_t<ACTION_T>, std::error_code>
+    ) || std::is_class_v<no_action>;
 
 struct stage_base {
     enum class state {
@@ -50,12 +50,12 @@ struct stage_base {
 };
 
 template <typename STAGE_T>
-concept is_build_stage = requires(STAGE_T stage) {
-    std::constructible_from<STAGE_T, fs::path> // This is the root of the project.
-    and std::derived_from<STAGE_T, stage_base>
-    and is_action<STAGE_T>;
-    { STAGE_T::is_project(fs::path{}) } -> std::convertible_to<bool>;
-    { stage.next() } -> is_action;
+concept is_build_stage = std::is_constructible_v<STAGE_T, fs::path> // This is the root of the project.
+    && std::is_base_of_v<stage_base, STAGE_T>
+    && is_action<STAGE_T>
+    && requires(STAGE_T stage) {
+        { STAGE_T::is_project(fs::path{}) } -> std::convertible_to<bool>;
+        { stage.next() } -> is_action;
 };
 
 bool has_next(is_build_stage auto& stage) {
