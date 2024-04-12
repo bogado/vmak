@@ -62,7 +62,7 @@ bool has_next(is_build_stage auto& stage) {
     return std::same_as<std::invoke_result_t<decltype(stage.next())>, no_action>;
 }
 
-template <static_string COMMAND, static_string CONFIG_FILE>
+template <static_string COMMAND, static_string CONFIG_FILE, is_action NEXT_ACTION = no_action>
 struct basic_stage : stage_base {
     fs::path prj_root;
 
@@ -107,6 +107,9 @@ struct basic_stage : stage_base {
 
 using make_stage = basic_stage<"make", "makefile">;
 using ninja_stage = basic_stage<"ninja", "build.ninja">;
+using jekyll_stage = basic_stage<"jekyll", "_config.yml">;
+using rust_stage = basic_stage<"cargo build", "Cargo.toml">;
+using gradle_stage = basic_stage<"./gradlew", "gradlew">;
 
 static_assert(is_build_stage<make_stage>);
 }

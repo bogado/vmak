@@ -36,7 +36,6 @@ struct basic_project
         return root_folder;
     }
 
-
     std::optional<path> file(std::string name) const noexcept
     {
         auto file = (root_folder / name);
