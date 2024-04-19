@@ -3,40 +3,29 @@
 #ifndef INCLUDED_ARGUMENTS_HPP
 #define INCLUDED_ARGUMENTS_HPP
 
-#include <array>
 #include <complex>
 #include <string_view>
+#include <vector>
+#include <ranges>
 
 #include <util/string.hpp>
 
 namespace vb {
 
-template <std::size_t... SIZEs>
 class arguments {
-    std::tuple<std::array<char, SIZEs>...> raw_arguments;
-
-    template <std::size_t N>
-    constexpr std::string_view getter(std::size_t n = N) const {
-        if constexpr (N >= count) {
-            return std::string_view{};
-        } else {
-
-            if (n > N) { 
-                return std::string_view{};
-            }
-
-            if (n < N) {
-                return getter<N+1>(n);
-            }
-
-            const auto& arg = std::get<N>(raw_arguments);
-            return std::string_view{arg.data(), arg.size()};
-        }
-    }
+    std::vector <std::string_view> args;
 
 public:
-    static constexpr auto count = sizeof...(SIZEs);
-    
+
+    template <std::ranges::view VIEWABLE>
+    arguments(VIEWABLE view) :
+        args{std::begin(view), std::end(view)}
+    {}
+
+    arguments(const char** argc, std::size_t argv) :
+        arguments{std::span(argc, argv)}
+    {}
+
     constexpr arguments(static_string<SIZEs>... args) : 
         raw_arguments{args.array()...}
     {}
