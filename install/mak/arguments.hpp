@@ -3,10 +3,10 @@
 #ifndef INCLUDED_ARGUMENTS_HPP
 #define INCLUDED_ARGUMENTS_HPP
 
-#include <complex>
 #include <string_view>
 #include <vector>
 #include <ranges>
+#include <span>
 
 #include <util/string.hpp>
 
@@ -26,19 +26,18 @@ public:
         arguments{std::span(argc, argv)}
     {}
 
-    constexpr arguments(static_string<SIZEs>... args) : 
-        raw_arguments{args.array()...}
+    template <unsigned ... SIZEs>
+    constexpr arguments(static_string<SIZEs>... arguments_) : 
+        args{arguments_.array()...}
     {}
 
     constexpr std::string_view operator[](std::size_t n) {
-        return getter<0>(n);
+        if (n >= std::size(args)) {
+            return {};
+        }
+        return args[n];
     }
 };
-
-template <std::size_t ... SIZEs>
-arguments(const char(&...arrs)[SIZEs]) -> arguments<SIZEs...>;
-
-static_assert(arguments("test", "12", "3").count == 3);
 
 }
 
