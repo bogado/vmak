@@ -10,11 +10,10 @@
 
 #include <util/string.hpp>
 
-namespace vb {
+namespace vb::mak {
 
 class arguments {
-    std::vector <std::string_view> args;
-
+    std::vector<const char*> args;
 public:
 
     template <std::ranges::view VIEWABLE>
