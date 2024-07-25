@@ -5,7 +5,6 @@
 
 #include <string_view>
 #include <vector>
-#include <ranges>
 #include <span>
 
 #include <util/string.hpp>
@@ -13,8 +12,12 @@
 namespace vb::mak {
 
 class arguments {
-    std::vector<const char*> args;
+    std::vector <std::string> args;
+
 public:
+    auto size() const {
+        return args.size();
+    }
 
     template <std::ranges::view VIEWABLE>
     arguments(VIEWABLE view) :
@@ -25,15 +28,12 @@ public:
         arguments{std::span(argc, argv)}
     {}
 
-    template <unsigned ... SIZEs>
-    constexpr arguments(static_string<SIZEs>... arguments_) : 
-        args{arguments_.array()...}
+    template <size_t... SIZEs>
+    constexpr arguments(const char (&...args)[SIZEs]) : 
+        args{args...}
     {}
 
-    constexpr std::string_view operator[](std::size_t n) {
-        if (n >= std::size(args)) {
-            return {};
-        }
+    constexpr std::string_view operator[](std::size_t n) const {
         return args[n];
     }
 };
