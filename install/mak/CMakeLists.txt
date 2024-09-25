@@ -3,4 +3,4 @@ add_executable(vbmak
     project.hpp
 )
 
-target_link_libraries(vbmak PRIVATE project_options basic_prj)
+target_link_libraries(vbmak PRIVATE basic_prj::utils)
