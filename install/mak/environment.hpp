@@ -5,7 +5,6 @@
 
 #include <unistd.h>
 
-#include <ranges>
 #include <vector>
 #include <string>
 
@@ -31,7 +30,7 @@ public:
         environment(const_cast<const char**>(environment_))
     {}
 
-}; // namespace environment.hpp
+};
 
 } // namespace BloombergLP
 
