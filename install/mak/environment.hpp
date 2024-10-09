@@ -5,31 +5,59 @@
 
 #include <unistd.h>
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
+#include <utility>
 #include <vector>
 #include <string>
 
 namespace vb::mak {
 
 struct environment {
+    static constexpr auto SEPARATOR = '\0';
+
 private:
     std::string definitions;
-    std::vector<std::size_t> separators;
-    std::vector<std::size_t> environ;
-public:
+    std::vector<char *> environ;
 
+    void updateCache()
+    {
+        environ.clear();
+        bool ended = true;
+        for(auto& chr: definitions) {
+            if (ended && chr != SEPARATOR) {
+                environ.push_back(&chr);
+                ended = false;
+            }
+            if (chr == SEPARATOR) {
+                ended = true;
+            }
+        }
+    }
+public:
     explicit environment(const char **environment_)
     {
         while(environment_ != nullptr) {
-            environ.push_back(std::size(definitions));
             definitions += std::string(*environment_);
-            separators.push_back(definitions.find('=', environ.back()));
+            definitions.push_back(SEPARATOR);
+            environment_ = std::next(environment_);
         }
     }
-    
-    environment(char** environment_ = ::environ) :
-        environment(const_cast<const char**>(environment_))
-    {}
 
+    auto set(std::string_view name) {
+        auto setter_ = [&](std::string_view value)
+        {
+            definitions += std::string(name) + "=" + std::string(value);
+            definitions.push_back('\0');
+        };
+
+        struct setter {
+            decltype(setter_) to = setter_;
+        };
+
+        return setter{};
+    }
 };
 
 } // namespace BloombergLP
