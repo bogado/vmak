@@ -7,6 +7,7 @@ add_executable(mak
 )
 
 target_link_libraries(mak PRIVATE vbconf_lib basic_prj::utils)
+setup_target(mak)
 
 find_package(Catch2 REQUIRED)
 
