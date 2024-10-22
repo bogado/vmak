@@ -14,51 +14,6 @@
 
 namespace vb::mak {
 
-template <typename T>
-struct nullptr_bounded_array {
-    using value_type = T;
-    using reference = T&;
-    using const_reference = const T&;
-    using pointer = T*;
-    using const_pointer = const T*;
-    using iterator = nullptr_bounded_array;
-
-    pointer *head;
-
-    auto begin() {
-        return *this;
-    }
-
-    auto end() {
-        return std::default_sentinel;
-    }
-
-    bool operator==(std::default_sentinel_t)
-    {
-        return *head == nullptr;
-    }
-
-    friend bool operator==(std::default_sentinel_t, const nullptr_bounded_array& self)
-    {
-        return self != std::default_sentinel;
-    }
-
-    auto operator++()
-    {
-        head++;
-        return *this;
-    }
-
-    auto operator++(int)
-    {
-        auto result = *this;
-        head++;
-        return result;
-    }
-
-    bool operator==(nullptr_bounded_array&) const = default;
-};
-
 struct environment {
     static constexpr auto SEPARATOR = '\0';
 

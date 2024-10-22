@@ -1,6 +1,7 @@
 #include <catch2/catch_all.hpp>
 
 #include "environment.hpp"
+#include "bounded_array.hpp"
 
 using namespace vb::mak; 
 
