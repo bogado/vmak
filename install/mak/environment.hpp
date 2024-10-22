@@ -36,6 +36,7 @@ private:
         }
     }
 public:
+    constexpr environment() = default;
     explicit environment(const char **environment_)
     {
         while(environment_ != nullptr) {
@@ -49,7 +50,7 @@ public:
         auto setter_ = [&](std::string_view value)
         {
             definitions += std::string(name) + "=" + std::string(value);
-            definitions.push_back('\0');
+            definitions.push_back(SEPARATOR);
         };
 
         struct setter {
@@ -57,6 +58,11 @@ public:
         };
 
         return setter{};
+    }
+
+    auto size() const
+    {
+        return std::ranges::count_if(definitions, [](auto c) { return c == SEPARATOR; });
     }
 };
 
