@@ -81,7 +81,8 @@ private:
         }
     }
 public:
-    constexpr environment() = default;
+    environment() = default;
+
     explicit environment(const char **environment_)
     {
         while(environment_ != nullptr) {
