@@ -1,14 +1,13 @@
-// environment.hpp                                                                        -*-C++-*-
-
 #ifndef INCLUDED_ENVIRONMENT_HPP
 #define INCLUDED_ENVIRONMENT_HPP
 
 #include <unistd.h>
+#include <util/converters.hpp>
 
 #include <algorithm>
+#include <concepts>
 #include <iterator>
-#include <ranges>
-#include <utility>
+#include <string_view>
 #include <vector>
 #include <string>
 
@@ -16,6 +15,7 @@ namespace vb::mak {
 
 struct environment {
     static constexpr auto SEPARATOR = '\0';
+    static constexpr auto VALUE_SEPARATOR = '=';
 
 private:
     std::string definitions;
@@ -35,6 +35,22 @@ private:
             }
         }
     }
+
+    struct mod {
+        environment& self;
+        std::string update;
+
+        constexpr mod(environment& me, std::string_view n)
+          : self{ me }
+          , update{ n }
+        {}
+
+        void operator=(parse::stringable auto value)
+        {
+            self.definitions += update + VALUE_SEPARATOR + vb::parse::to_string(value);
+            self.definitions.push_back(SEPARATOR);
+        }
+    };
 public:
     environment() = default;
 
@@ -47,18 +63,24 @@ public:
         }
     }
 
-    auto set(std::string_view name) {
-        auto setter_ = [&](std::string_view value)
+    template <parse::parseable RESULT_T>
+    RESULT_T get(std::string name) const {
+        auto get_value = [&](auto pos) {
+            return parse::from_string<RESULT_T>(std::string_view{pos, std::ranges::find(pos, std::end(definitions), SEPARATOR)});
+        };
+
+        auto lookup = name + VALUE_SEPARATOR;
+        if (definitions.starts_with(lookup))
         {
-            definitions += std::string(name) + "=" + std::string(value);
-            definitions.push_back(SEPARATOR);
-        };
+            return get_value(std::next(std::begin(definitions), static_cast<int>(lookup.size())));
+        }
 
-        struct setter {
-            decltype(setter_) to = setter_;
-        };
+        lookup.insert(0, std::string{SEPARATOR});
+        return get_value(std::ranges::search(definitions, lookup).end());
+    };
 
-        return setter{};
+    auto set(std::string_view name) {
+        return mod{*this, name};
     }
 
     auto size() const
@@ -67,6 +89,6 @@ public:
     }
 };
 
-} // namespace BloombergLP
+}
 
 #endif
