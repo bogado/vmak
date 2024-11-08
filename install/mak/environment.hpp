@@ -1,8 +1,8 @@
 #ifndef INCLUDED_ENVIRONMENT_HPP
 #define INCLUDED_ENVIRONMENT_HPP
 
-#include <unistd.h>
 #include <util/converters.hpp>
+#include <util/string.hpp>
 
 #include <algorithm>
 #include <concepts>
@@ -37,20 +37,36 @@ private:
     }
 
     struct mod {
-        environment& self;
+        environment& self; // NOLINT: cppcoreguidelines-avoid-const-or-ref-data-members
         std::string update;
 
-        constexpr mod(environment& me, std::string_view n)
+        mod(environment& me, std::string_view n)
           : self{ me }
           , update{ n }
         {}
 
-        void operator=(parse::stringable auto value)
+        void operator=(parse::stringable auto value) // NOLINT: cppcoreguidelines-c-copy-assignment-signature
         {
             self.definitions += update + VALUE_SEPARATOR + vb::parse::to_string(value);
             self.definitions.push_back(SEPARATOR);
         }
     };
+
+    auto lookup_name(std::string lookup) const
+    {
+        lookup += VALUE_SEPARATOR;
+        if (definitions.starts_with(lookup))
+        {
+            return std::next(std::begin(definitions), static_cast<int>(lookup.size() - 1));
+        }
+
+        lookup.insert(0, std::string{SEPARATOR});
+        auto found = std::ranges::search(definitions, lookup);
+        if (found.begin() == definitions.end()) {
+            return std::end(definitions);
+        }
+        return std::prev(found.end());
+    }
 public:
     environment() = default;
 
@@ -65,20 +81,14 @@ public:
 
     template <parse::parseable RESULT_T>
     RESULT_T get(std::string name) const {
-        auto get_value = [&](auto pos) {
-            return parse::from_string<RESULT_T>(std::string_view{pos, std::ranges::find(pos, std::end(definitions), SEPARATOR)});
-        };
+        auto pos = lookup_name(name);
+        return from_string<RESULT_T>(std::string_view(pos, std::find(pos, definitions.end(), SEPARATOR)));
+    }
 
-        auto lookup = name + VALUE_SEPARATOR;
-        if (definitions.starts_with(lookup))
-        {
-            return get_value(std::next(std::begin(definitions), static_cast<int>(lookup.size())));
-        }
-
-        lookup.insert(0, std::string{SEPARATOR});
-        return get_value(std::ranges::search(definitions, lookup).end());
-    };
-
+    bool contains(std::string name) {
+        return lookup_name(std::string{name}) != definitions.end();
+    }
+        
     auto set(std::string_view name) {
         return mod{*this, name};
     }

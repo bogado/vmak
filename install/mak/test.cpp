@@ -8,7 +8,7 @@ using namespace vb::mak;
 TEST_CASE("environment_test", "[env]")
 {
     environment env_test;
-    env_test.set("test").to("value");
+    env_test.set("test") = "value";
     REQUIRE(env_test.size() == 1);
 
     env_test.set("check") = 32;
