@@ -1,7 +1,6 @@
 add_executable(mak
     main.cpp
     arguments.hpp
-    environment.hpp
     project.hpp
     stage.hpp
 )
