@@ -45,9 +45,9 @@ private:
           , update{ n }
         {}
 
-        void operator=(parse::stringable auto value) // NOLINT: cppcoreguidelines-c-copy-assignment-signature
+        void operator=(stringable auto value) // NOLINT: cppcoreguidelines-c-copy-assignment-signature
         {
-            self.definitions += update + VALUE_SEPARATOR + vb::parse::to_string(value);
+            self.definitions += update + VALUE_SEPARATOR + vb::to_string(value);
             self.definitions.push_back(SEPARATOR);
         }
     };
@@ -79,7 +79,7 @@ public:
         }
     }
 
-    template <parse::parseable RESULT_T>
+    template <parseable RESULT_T>
     RESULT_T get(std::string name) const {
         auto pos = lookup_name(name);
         return from_string<RESULT_T>(std::string_view(pos, std::find(pos, definitions.end(), SEPARATOR)));
