@@ -1,8 +1,9 @@
 add_executable(mak
     main.cpp
-    arguments.hpp
+    builder.hpp
+    builders.hpp
     project.hpp
-    stage.hpp
+    work_directory.hpp
 )
 
 target_link_libraries(mak PRIVATE basic_prj::utils)
