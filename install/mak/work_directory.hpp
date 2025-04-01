@@ -15,30 +15,44 @@ using arguments = std::vector<std::string_view>;
 template <typename WORKDIR>
 concept is_work_directory = requires(const WORKDIR dir) {
     { dir.path() } -> std::same_as<fs::path>;
-    { dir.has(std::string{"filename"}) } -> std::same_as<bool>;
+    { dir.has_file(std::string{"filename"}) } -> std::same_as<bool>;
+    { dir.has_folder(std::string{"filename"}) } -> std::same_as<bool>;
     { dir.execute("command"sv, arguments{}) } -> std::convertible_to<bool>;
-    { dir.execute("command"sv, env::environment{}) } -> std::convertible_to<bool>;
+    { dir.execute("command"sv, env::environment::optional{}) } -> std::convertible_to<bool>;
     { dir.execute("command"sv, arguments{}, env::environment{}) } -> std::convertible_to<bool>;
 };
 
 struct work_dir {
     fs::path root;
+
+    explicit work_dir(fs::path rt = fs::current_path()) :
+        root{rt}
+    {}
     
     fs::path path() const { 
         return root;
     }
 
-    bool has(std::string_view file) const {
-        return fs::exists(root / file);
+    bool has_file(std::string_view file) const {
+        return fs::is_regular_file(root / file);
     }
 
-    bool execute(std::string_view command, std::ranges::contiguous_range auto args, env::environment env = {})
+    bool has_folder(std::string_view file) const {
+        return fs::is_directory(root / file);
+    }
+
+    bool execute(std::string_view command, std::ranges::contiguous_range auto args, env::environment::optional env = {}) const
     {
-        execution executer;
-        return executer.execute(fs::path{command}, args, env, root) != 0;
+        std::print("Executing {}", command);
+        for (const auto& arg: args) {
+            std::print("«{}» ", arg);
+        };
+        std::println("\n");
+
+        execution executer{};
+        executer.execute(command, args, env, root); 
+        return executer.wait() == 0;
     }
 };
 
-
 }
-
