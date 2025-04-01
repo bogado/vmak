@@ -8,6 +8,7 @@ add_executable(mak
 
 target_link_libraries(mak PRIVATE basic_prj::utils)
 setup_target(mak PUBLIC)
+install(TARGETS mak DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 enable_testing()
 
