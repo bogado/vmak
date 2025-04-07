@@ -1,6 +1,10 @@
+#ifndef INCLUDE_MAK_WORK_DIRECTORY_HPP_
+#define INCLUDE_MAK_WORK_DIRECTORY_HPP_
+
 #include "util/filesystem.hpp"
 #include "util/environment.hpp"
 #include "./result.hpp"
+
 #include <concepts>
 #include <filesystem>
 #include <ranges>
@@ -56,3 +60,6 @@ struct work_dir {
 };
 
 }
+
+#endif  // INCLUDE_MAK_WORK_DIRECTORY_HPP_
+
