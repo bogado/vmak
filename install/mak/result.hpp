@@ -1,8 +1,9 @@
 #ifndef INCLUDED_RESULT_HPP
 #define INCLUDED_RESULT_HPP
 
+#include "util/execution.hpp"
+
 #include <format>
-#include <util/execution.hpp>
 #include <vector>
 #include <iterator>
 
@@ -80,7 +81,7 @@ struct std::formatter<vb::execution_result, char>
             status = "Success";
             break;
         case SOFT_FAILURE:
-            status = "Success with errors";
+            status = "Success with messages";
             break;
         case FAILURE: 
             status = "Failure";
