@@ -15,7 +15,15 @@ int main()
     }
 
     while (builder) {
-        builder.run();
+        std::print("Running {}:", builder);
+
+        auto result = builder.run();
+         
+        std::println("{}", result);
+
+        if (!result) {
+            return 1;
+        }
         builder = builder.next();
     }
     return 0;

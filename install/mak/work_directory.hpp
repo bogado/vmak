@@ -1,5 +1,6 @@
 #include "util/filesystem.hpp"
 #include "util/environment.hpp"
+#include "./result.hpp"
 #include <concepts>
 #include <filesystem>
 #include <ranges>
@@ -23,36 +24,35 @@ concept is_work_directory = requires(const WORKDIR dir) {
 };
 
 struct work_dir {
-    fs::path root;
+  fs::path root;
 
-    explicit work_dir(fs::path rt = fs::current_path()) :
-        root{rt}
-    {}
-    
-    fs::path path() const { 
-        return root;
-    }
+  explicit work_dir(fs::path rt = fs::current_path()) : root{rt} {}
 
-    bool has_file(std::string_view file) const {
-        return fs::is_regular_file(root / file);
-    }
+  fs::path path() const { return root; }
 
-    bool has_folder(std::string_view file) const {
-        return fs::is_directory(root / file);
-    }
+  bool has_file(std::string_view file) const {
+    return fs::is_regular_file(root / file);
+  }
 
-    bool execute(std::string_view command, std::ranges::contiguous_range auto args, env::environment::optional env = {}) const
-    {
-        std::print("Executing {}", command);
-        for (const auto& arg: args) {
-            std::print("«{}» ", arg);
-        };
-        std::println("\n");
+  bool has_folder(std::string_view file) const {
+    return fs::is_directory(root / file);
+  }
 
-        execution executer{};
-        executer.execute(command, args, env, root); 
-        return executer.wait() == 0;
-    }
+  auto execute(std::string_view command,
+               std::ranges::contiguous_range auto args,
+               env::environment::optional env = {}) const {
+    auto errors = std::vector<std::string>{};
+    std::print(" {} [ {} ", root.string(), command);
+    for (const auto &arg : args) {
+      std::print("«{}» ", arg);
+    };
+    std::println(" ]\n");
+
+    execution executer{io_set::ERR};
+    executer.execute(command, args, env, root);
+
+    return execution_result{executer};
+  }
 };
 
 }
