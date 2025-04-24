@@ -123,7 +123,7 @@ struct conan: basic_builder<conan_spec, conan> {
     }
 
     execution_result execute_step(execution_result result, conan_profile profile, build_types type) const {
-        return result.merge(root().execute(
+        return execution_result::merge(result, root().execute(
          command,
          std::array{
              "install"s,
@@ -135,7 +135,7 @@ struct conan: basic_builder<conan_spec, conan> {
          }, env()));
     }
 
-    execution_result execute() const override
+    execution_result execute(std::string_view) const override // Target is ignored in this step.
     {
         execution_result result = execution_result::NOT_NEEDED;
         for (auto profile: profiles) {

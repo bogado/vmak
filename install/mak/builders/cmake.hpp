@@ -40,7 +40,7 @@ struct cmake : basic_builder<cmake_spec, cmake>
 
     std::string build_dir;
 
-    execution_result execute() const override
+    execution_result execute(std::string_view) const override // target ignored in this step.
     {
         using namespace std::literals;
         if (env().contains("CMAKE_PRESET")) {

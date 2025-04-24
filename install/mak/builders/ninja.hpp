@@ -25,12 +25,7 @@ struct ninja : basic_builder<ninja_spec, ninja>
 {
     using basic_builder<ninja_spec, ninja>::create;
 
-    static constexpr auto TARGET_VAR="BUILD_TARGET";
     static constexpr auto BUILD_FILE_VAR="NINJA_FILE";
-
-    std::string target() const {
-        return env().value_for(TARGET_VAR).value_or("");
-    }
 
     fs::path build_file() const {
         if (auto var = env().get(BUILD_FILE_VAR); var.has_value() && var.value().has_value()) {
@@ -44,18 +39,17 @@ struct ninja : basic_builder<ninja_spec, ninja>
     : basic_builder{wd, env_.has_value() ? env_ : env::environment{}}
     {
         env().import(BUILD_FILE_VAR);
-        env().import(TARGET_VAR);
     }
 
-    std::vector<std::string> arguments() const override
+    std::vector<std::string> arguments(std::string_view target) const override
     {
         auto args = std::vector<std::string>{};
         if (!build_file().empty() && fs::exists(work_dir().path() / build_file())) {
             args.push_back("-f"s);
             args.push_back(work_dir().path() / build_file());
         }
-        if (!target().empty()) {
-            args.push_back(target());
+        if (!target.empty()) {
+            args.push_back(std::string{target});
         }
         return args;
     }

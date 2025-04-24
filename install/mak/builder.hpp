@@ -1,25 +1,25 @@
 #ifndef INCLUDED_BUILDER_HPP
 #define INCLUDED_BUILDER_HPP
 
-#include "./work_directory.hpp"
 #include "./result.hpp"
 
+#include <algorithm>
 #include <util/environment.hpp>
 #include <util/filesystem.hpp>
 #include <util/string.hpp>
 
 #include <concepts>
-#include <filesystem>
 #include <memory>
 #include <optional>
-
+#include <string_view>
 
 namespace vb::maker {
 
-template<typename RUNNER>
+template <typename RUNNER>
 concept is_runner = requires(const RUNNER runner) {
-    { runner.working_directory() } -> std::same_as<fs::path>;
-    { runner.run() } -> std::same_as<bool>;
+  { runner.working_directory() } -> std::same_as<fs::path>;
+  { runner.run() } -> std::same_as<execution_result>;
+  { runner.run(std::string_view{}) } -> std::same_as<execution_result>;
 };
 
 template <typename OPT_RUNNER>
@@ -42,7 +42,7 @@ struct builder_base {
   virtual ptr next_builder() const { return nullptr; }
 
   virtual fs::path working_directory() const { return root().path(); }
-  virtual execution_result execute() const = 0;
+  virtual execution_result execute(std::string_view target) const = 0;
 };
 
 template <typename BUILDER>
@@ -52,11 +52,11 @@ concept is_builder =
       { BUILDER::is_root(path) } -> std::same_as<bool>;
     };
 
-template<typename SPEC_T>
+template <typename SPEC_T>
 concept is_builder_spec = requires {
-    requires is_string<decltype(SPEC_T::name)>;
-    requires is_string<decltype(SPEC_T::build_file)>;
-    requires is_string<decltype(SPEC_T::command)>;
+  requires is_string<decltype(SPEC_T::name)>;
+  requires is_string<decltype(SPEC_T::build_file)>;
+  requires is_string<decltype(SPEC_T::command)>;
 };
 
 template <is_builder_spec SPECIFICATION, typename CLASS = void>
@@ -87,17 +87,16 @@ public:
   static constexpr auto build_file = SPECIFICATION::build_file;
 
   explicit basic_builder(work_dir rt, env::environment::optional env_)
-      : root_wd{rt}, environment{env_.value_or(env::environment{})} 
-  {
-      if constexpr (requires { SPECIFICATION::import_vars; })
-      {
-          for (auto var_name : SPECIFICATION::import_vars) {
-              env().import(var_name);
-          }
+      : root_wd{rt}, environment{env_.value_or(env::environment{})} {
+    if constexpr (requires { SPECIFICATION::import_vars; }) {
+      for (auto var_name : SPECIFICATION::import_vars) {
+        env().import(var_name);
       }
-      for (auto var_name : std::array{ "HOME", "USER", "USERNAME", "UID", "PATH"} ) {
-          env().import(var_name);
-      }
+    }
+    for (auto var_name :
+         std::array{"HOME", "USER", "USERNAME", "UID", "PATH"}) {
+      env().import(var_name);
+    }
   }
 
   std::string name() const override {
@@ -110,19 +109,49 @@ public:
 
   bool required() const override { return true; }
 
-  virtual std::vector<std::string> arguments() const {
+  auto run(std::string_view target) { return execute(arguments(target)); }
+
+  std::vector<std::string>
+  arguments_builder(std::same_as<std::string_view> auto... args) const {
+    std::vector<std::string> result;
     if constexpr (requires { SPECIFICATION::arguments; }) {
-      return std::ranges::to<std::vector>(
-          SPECIFICATION::arguments | std::views::transform([](const auto &arg) {
-            return vb::to_string(arg);
-          }));
+      result.reserve(std::size(SPECIFICATION::arguments) + sizeof...(args));
+      std::ranges::copy(SPECIFICATION::arguments |
+                            std::views::transform([](const auto &arg) {
+                              return vb::to_string(arg);
+                            }),
+                        std::back_inserter(result));
     } else {
-      return std::vector<std::string>{};
+      result.reserve(sizeof...(args));
+    }
+    if constexpr (sizeof...(args) > 0) {
+      std::ranges::copy(std::array{args...} |
+                            std::views::transform([](std::string_view view) {
+                              return std::string(view);
+                            }),
+                        std::back_inserter(result));
+    }
+    return result;
+  }
+
+  virtual std::vector<std::string> arguments(std::string_view target) const {
+    if (target.empty()) {
+      return arguments_builder();
+    } else {
+      return arguments_builder(target);
     }
   }
 
-  execution_result execute() const override {
-    return root().execute(command, arguments(), env());
+  execution_result execute(std::string_view target = {}) const override {
+    std::string target_arg;
+    if constexpr (requires { SPECIFICATION::target_argument_prefix; }) {
+      target_arg = std::string(SPECIFICATION::target_argument_prefix) +
+                   std::string{target};
+    } else {
+      target_arg = target;
+    }
+
+    return root().execute(command, arguments(target_arg), env());
   }
 
 protected:
@@ -131,111 +160,88 @@ protected:
   auto &env() { return environment; }
 };
 
-struct builder : builder_base
-{
+struct builder : builder_base {
 private:
-    builder_base::ptr impl;
+  builder_base::ptr impl;
 
 public:
-    using optional = std::optional<builder>;
+  using optional = std::optional<builder>;
 
-    constexpr builder() = default;
+  constexpr builder() = default;
 
-    builder(builder_base::ptr&& impl_)
-        : impl{std::move(impl_)}
-    {}
+  builder(builder_base::ptr &&impl_) : impl{std::move(impl_)} {}
 
-    explicit operator bool() const {
-        return impl != nullptr;
+  explicit operator bool() const { return impl != nullptr; }
+
+  std::string name() const override {
+    if (!*this) {
+      return "«NO BUILDER»";
     }
 
-    execution_result run() const
-    {
-        if (!required()) {
-            return execution_result::NOT_NEEDED;
-        }
+    return impl->name();
+  }
 
-        return execute();
+  bool required() const override {
+    if (!*this) {
+      return false;
     }
 
+    return impl->required();
+  }
 
-    std::string name() const override {
-        if (!*this) {
-            return "«NO BUILDER»";
-        }
-
-        return impl->name();
+  execution_result execute(std::string_view target = {}) const override {
+    if (!*this) {
+      return execution_result::PANIC;
     }
 
-    bool required() const override {
-        if (!*this) {
-            return false;
-        }
+    return impl->execute(target);
+  }
 
-        return impl->required();
+  work_dir root() const override {
+    if (!*this) {
+      return work_dir{};
     }
 
-    execution_result execute() const override
-    {
-        if (!*this) {
-            return execution_result::PANIC;
-        }
+    return impl->root();
+  }
 
-        return impl->execute();
+  ptr next_builder() const override {
+    if (!*this) {
+      return nullptr;
     }
 
-    work_dir root() const override 
-    {
-        if (!*this) {
-            return work_dir{};
-        }
+    return impl->next_builder();
+  }
 
-        return impl->root();
+  builder next() const {
+    if (*this) {
+      if (auto nxt = impl->next_builder(); nxt != nullptr) {
+        return builder{std::move(nxt)};
+      }
     }
+    return builder{};
+  }
 
-    ptr next_builder() const override
-    {
-        if(!*this) {
-            return nullptr;
-        }
-
-        return impl->next_builder();
-    }
-
-    builder next() const
-    {
-        if (*this) {
-            if (auto nxt = impl->next_builder(); nxt != nullptr) {
-                return builder{std::move(nxt)};
-            }
-        }
-        return builder{};
-    }
-
-    fs::path working_directory() const override
-    {
-        return impl->working_directory();
-    }
+  fs::path working_directory() const override {
+    return impl->working_directory();
+  }
 };
 } // namespace vb::maker
 
-template <>
-struct std::formatter<vb::maker::builder, char>
-{
-    template <class PARSE_CONTEXT>
-    constexpr PARSE_CONTEXT::iterator parse(PARSE_CONTEXT& context)
-    {
-        return context.begin();
-    }
+template <> struct std::formatter<vb::maker::builder, char> {
+  template <class PARSE_CONTEXT>
+  constexpr PARSE_CONTEXT::iterator parse(PARSE_CONTEXT &context) {
+    return context.begin();
+  }
 
-    template <class FORMATTER_CONTEXT>
-    FORMATTER_CONTEXT::iterator format(const vb::maker::builder& builder, FORMATTER_CONTEXT& context) const
-    {
-        auto out = context.out();
-        out = std::ranges::copy("🔧 "sv, out).out;
-        out = std::ranges::copy(builder.name(), context.out()).out;
-        return out;
-    }
+  template <class FORMATTER_CONTEXT>
+  FORMATTER_CONTEXT::iterator format(const vb::maker::builder &builder,
+                                     FORMATTER_CONTEXT &context) const {
+    auto out = context.out();
+    out = std::ranges::copy("🔧 "sv, out).out;
+    out = std::ranges::copy(builder.name(), context.out()).out;
+    return out;
+  }
 };
 
 #endif // INCLUDED_BUILDER_HPP
