@@ -1,11 +1,22 @@
 #include "builders.hpp"
+#include <ranges>
+#include <vector>
+#include <string_view>
 #include <ostream>
 
 using namespace vb;
 
 
-int main()
+int main(int argc, const char* argv[])
 {
+    auto args = std::ranges::to<std::vector>(
+        std::span(argv, static_cast<std::size_t>(argc))
+        | std::views::drop(1));
+    auto target = std::string_view{};
+    if (!args.empty()) {
+        target = args.front();
+    }
+        
     maker::work_dir current{};
     maker::builder builder = maker::builders::select(current);
 
@@ -17,7 +28,7 @@ int main()
     while (builder) {
         std::print("Running {}:", builder);
 
-        auto result = builder.run();
+        auto result = builder.execute(target);
          
         std::println("{}", result);
 

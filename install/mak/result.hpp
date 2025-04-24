@@ -21,6 +21,7 @@ struct execution_result {
     using enum type;
 
     std::vector<std::string> error_output;
+    std::vector<std::string> output;
     int exit_code = 0;
     type status = SUCCESS;
 
@@ -39,19 +40,20 @@ struct execution_result {
         status{st}
     {}
 
-    execution_result(execution& exec)
+    explicit execution_result(execution& exec)
         : error_output{std::ranges::to<std::vector>(exec.lines<std_io::ERR>())}, exit_code{exec.wait()},
           status{exit_code != 0         ? FAILURE
                  : error_output.empty() ? SUCCESS
                                         : SOFT_FAILURE} {}
 
-    execution_result merge(execution_result other) const
+    static execution_result merge(const std::same_as<execution_result> auto&... others)
     {
-        if (status > other.status) {
-            other.status = status;
+        execution_result result{std::max(others.status...)};
+        for (const auto& current : { others...} ) {
+            std::ranges::copy(current.output, std::back_inserter(result.output));
+            std::ranges::copy(current.error_output, std::back_inserter(result.error_output));
         }
-        std::ranges::copy(error_output, std::back_inserter(other.error_output));
-        return other;
+        return result;
     }
 };
 

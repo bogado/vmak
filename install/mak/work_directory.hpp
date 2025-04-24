@@ -44,7 +44,9 @@ struct work_dir {
 
   auto execute(std::string_view command,
                std::ranges::contiguous_range auto args,
-               env::environment::optional env = {}) const {
+               env::environment::optional env = {}) const
+  -> execution_result
+  {
     auto errors = std::vector<std::string>{};
     std::print(" {} [ {} ", root.string(), command);
     for (const auto &arg : args) {
