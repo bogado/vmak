@@ -2,6 +2,7 @@
 #define INCLUDED_BUILDER_HPP
 
 #include "./result.hpp"
+#include "./work_directory.hpp"
 #include <util/environment.hpp>
 #include <util/filesystem.hpp>
 #include <util/string.hpp>
@@ -30,7 +31,7 @@ concept is_optional_runner = std::same_as<std::nullopt_t, OPT_RUNNER> || require
 struct builder_base
 {
     using ptr     = std::unique_ptr<builder_base>;
-    using factory = ptr (*)(work_dir, env::environment::optional);
+    using factory = ptr(*)(work_dir, env::environment::optional);
 
     virtual ~builder_base() = default;
 
