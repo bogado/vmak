@@ -60,8 +60,9 @@ template<is_builder_spec SPECIFICATION, typename CLASS = void>
 struct basic_builder : builder_base
 {
 private:
-    work_dir         root_wd;
-    env::environment environment{};
+    work_dir         my_root;
+    env::environment my_env{};
+    std::string      my_args{};
 
 public:
     static bool is_root(work_dir root) { return root.has_file(SPECIFICATION::build_file); }
@@ -81,9 +82,10 @@ public:
     static constexpr auto command    = SPECIFICATION::command;
     static constexpr auto build_file = SPECIFICATION::build_file;
 
-    explicit basic_builder(work_dir rt, env::environment::optional env_)
-        : root_wd{ rt }
-        , environment{ env_.value_or(env::environment{}) }
+    explicit basic_builder(work_dir rt, env::environment::optional env_, std::same_as<std::string_view> auto... args)
+        : my_root{ rt }
+        , my_env{ env_.value_or(env::environment{}) }
+        , my_args{args...}
     {
         if constexpr (requires { SPECIFICATION::import_vars; }) {
             for (auto var_name : SPECIFICATION::import_vars) {
@@ -97,7 +99,7 @@ public:
 
     std::string name() const override { return vb::to_string(SPECIFICATION::name); }
 
-    work_dir root() const override { return root_wd; }
+    work_dir root() const override { return my_root; }
 
     basic_builder::ptr next_builder() const override { return nullptr; }
 
@@ -146,9 +148,9 @@ public:
     }
 
 protected:
-    const auto& env() const { return environment; }
+    const auto& env() const { return my_env; }
 
-    auto& env() { return environment; }
+    auto& env() { return my_env; }
 };
 
 struct builder : builder_base
