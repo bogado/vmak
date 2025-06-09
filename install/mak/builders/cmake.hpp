@@ -18,9 +18,8 @@ struct cmake : basic_builder<cmake_spec, cmake>
 {
     using basic_builder<cmake_spec, cmake>::create;
 
-    static constexpr auto build_dirs = std::array{
+    static constexpr auto build_dirs = std::array {
         "build"sv,
-        "build_clang"sv,
     };
 
     static std::string get_build(env::environment::optional env)
@@ -65,6 +64,30 @@ struct cmake : basic_builder<cmake_spec, cmake>
         new_env.set("BUILD_DIR") = build_dir;
         return ninja::create(work_dir{ root().path() / build_dir }, new_env);
     }
+};
+
+struct cmake_preset_spec {
+    static constexpr std::string_view name       = "cmake - preset";
+    static constexpr auto build_file = std::array{ "CMakeUserPreset.json"sv, "CMakePresets.json"sv };
+    static constexpr std::string_view command    = "cmake";
+};
+
+class cmake_preset : basic_builder<cmake_spec, cmake_preset_spec>
+{
+private:
+    std::vector<std::string> presets;
+
+    static auto get_presets(work_dir wd) {
+        // continuar 
+    }
+
+public:
+    using basic_builder<cmake_spec, cmake_preset>::create;
+
+
+    cmake_preset(work_dir wd, env::environment::optional env_)
+        : basic_builder{ wd, env_ }
+    {}
 };
 
 }

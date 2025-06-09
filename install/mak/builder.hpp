@@ -65,9 +65,18 @@ private:
     std::string      my_args{};
 
 public:
-    static bool is_root(work_dir root) { return root.has_file(SPECIFICATION::build_file); }
+    static bool is_root(work_dir root) {
+        if constexpr (requires {
+            { *std::ranges::begin(SPECIFICATION::build_file) } -> std::same_as<std::string_view>;
+        }) {
+            return std::ranges::any_of(SPECIFICATION::build_file | std::views::transform([&](const auto& filename){ return root.has_file(filename); }));
+        } else {
+            return root.has_file(SPECIFICATION::build_file);
+        }
+    }
 
     static constexpr basic_builder::factory create = [](work_dir dir, env::environment::optional env) {
+
         if (!is_root(dir)) {
             return basic_builder::ptr{ nullptr };
         }
