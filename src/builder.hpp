@@ -31,7 +31,7 @@ concept is_optional_runner = std::same_as<std::nullopt_t, OPT_RUNNER> || require
 struct builder_base
 {
     using ptr     = std::unique_ptr<builder_base>;
-    using factory = ptr(*)(work_dir, env::environment::optional);
+    using factory = ptr (*)(work_dir, env::environment::optional);
 
     virtual ~builder_base() = default;
 
@@ -52,7 +52,9 @@ concept is_builder = is_runner<BUILDER> && std::derived_from<builder_base, BUILD
 template<typename SPEC_T>
 concept is_builder_spec = requires {
     requires is_string<decltype(SPEC_T::name)>;
-    requires is_string<decltype(SPEC_T::build_file)>;
+    requires is_string<decltype(SPEC_T::build_file)> ||
+                 (std::ranges::range<decltype(SPEC_T::build_files)> &&
+                  std::same_as<std::ranges::range_value_t<decltype(SPEC_T::build_files)>, std::string_view>);
     requires is_string<decltype(SPEC_T::command)>;
 };
 
@@ -65,18 +67,20 @@ private:
     std::string      my_args{};
 
 public:
-    static bool is_root(work_dir root) {
+    static bool is_root(work_dir root)
+    {
         if constexpr (requires {
-            { *std::ranges::begin(SPECIFICATION::build_file) } -> std::same_as<std::string_view>;
-        }) {
-            return std::ranges::any_of(SPECIFICATION::build_file | std::views::transform([&](const auto& filename){ return root.has_file(filename); }));
+                          { SPECIFICATION::build_files };
+                      }) {
+            return std::ranges::any_of(SPECIFICATION::build_files, [&](const auto& filename) {
+                                           return root.has_file(filename);
+                                       });
         } else {
             return root.has_file(SPECIFICATION::build_file);
         }
     }
 
     static constexpr basic_builder::factory create = [](work_dir dir, env::environment::optional env) {
-
         if (!is_root(dir)) {
             return basic_builder::ptr{ nullptr };
         }
@@ -89,12 +93,20 @@ public:
     };
 
     static constexpr auto command    = SPECIFICATION::command;
-    static constexpr auto build_file = SPECIFICATION::build_file;
+    static constexpr auto build_file = []() {
+        if constexpr (requires {
+                          { SPECIFICATION::build_file };
+                      }) {
+            return SPECIFICATION::build_file;
+        } else {
+            return SPECIFICATION::build_files;
+        }
+    }();
 
     explicit basic_builder(work_dir rt, env::environment::optional env_, std::same_as<std::string_view> auto... args)
         : my_root{ rt }
         , my_env{ env_.value_or(env::environment{}) }
-        , my_args{args...}
+        , my_args{ args... }
     {
         if constexpr (requires { SPECIFICATION::import_vars; }) {
             for (auto var_name : SPECIFICATION::import_vars) {

@@ -3,6 +3,7 @@
 
 #include "builder.hpp"
 #include "builders/cmake.hpp"
+#include "builders/cmake_preset.hpp"
 #include "builders/conan.hpp"
 #include "builders/ninja.hpp"
 #include <util/environment.hpp>
@@ -34,7 +35,7 @@ struct make_spec
 using make = basic_builder<make_spec>;
 
 inline const auto all_factories =
-    std::array{ make::create, conan::create, cmake::create, ninja::create, jekyll::create };
+    std::array{ make::create, conan::create, cmake_preset::create, cmake::create, ninja::create, jekyll::create };
 
 builder_base::ptr
 select(work_dir root, env::environment::optional env = {})

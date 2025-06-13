@@ -1,0 +1,20 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 15,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "test-included",
+            "displayName": "test configuration",
+            "description": "Used during test",
+            "generator": "Ninja Multi-Config",
+            "cacheVariables": {
+                "CMAKE_POLICY_DEFAULT_CMP0091": "NEW"
+            },
+            "sourceDir": "."
+        }
+    ]
+}

@@ -27,6 +27,7 @@ struct execution_result
     int                      exit_code = 0;
     type                     status    = SUCCESS;
 
+public:
     constexpr operator bool() const
     {
         switch (status) {
@@ -43,6 +44,12 @@ struct execution_result
         : status{ st }
     {
     }
+
+    explicit execution_result(std::string what)
+        : error_output{std::move(what)}
+        , output{}
+        , exit_code{ -1 }
+        , status{ FAILURE } {};
 
     explicit execution_result(execution& exec)
         : error_output{ std::ranges::to<std::vector>(exec.lines<std_io::ERR>()) }
