@@ -47,6 +47,7 @@ struct builder_base
 template<typename BUILDER>
 concept is_builder = is_runner<BUILDER> && std::derived_from<builder_base, BUILDER> && requires(const fs::path path) {
     { BUILDER::is_root(path) } -> std::same_as<bool>;
+    { BUILDER::task } -> std::same_as<task_type>;
 };
 
 template<typename SPEC_T>

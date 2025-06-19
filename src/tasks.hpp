@@ -8,14 +8,26 @@ namespace vb::maker {
 
 using namespace std::literals;
 
-enum class preset_type : char
+enum class task_type : char
 {
+    pre_requisites,
     configuration,
     build,
     test
 };
 
-constexpr auto preset_type_name(preset_type type)
+constexpr auto operator<=>(const task_type& type_a, const task_type& type_b)
+{
+    return std::to_underlying(type_a) <=> std::to_underlying(type_b);
+}
+
+constexpr auto operator==(const task_type& type_a, const task_type& type_b)
+-> bool = default;
+
+constexpr auto operator!=(const task_type& type_a, const task_type& type_b)
+-> bool = default;
+
+constexpr auto task_name(task_type type)
 {
     static auto keys = std::array{ "configure"sv, "build"sv, "test"sv };
     return keys[static_cast<std::size_t>(type)];
@@ -24,7 +36,7 @@ constexpr auto preset_type_name(preset_type type)
 }
 
 template<>
-struct std::formatter<vb::maker::preset_type, char>
+struct std::formatter<vb::maker::task_type, char>
 {
     template<class PARSE_CONTEXT>
     constexpr PARSE_CONTEXT::iterator parse(PARSE_CONTEXT& context)
@@ -33,9 +45,9 @@ struct std::formatter<vb::maker::preset_type, char>
     }
 
     template<class FORMAT_CONTEXT>
-    constexpr FORMAT_CONTEXT::iterator format(const vb::maker::preset_type& type, FORMAT_CONTEXT& context) const
+    constexpr FORMAT_CONTEXT::iterator format(const vb::maker::task_type& type, FORMAT_CONTEXT& context) const
     {
-        auto type_key = vb::maker::preset_type_name(type);
+        auto type_key = vb::maker::task_name(type);
 
         auto out = std::ranges::copy(type_key, context.out()).out;
 

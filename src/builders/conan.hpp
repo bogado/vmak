@@ -2,6 +2,7 @@
 #define INCLUDED_CONAN_HPP
 
 #include "../builder.hpp"
+#include "builders/cmake_preset.hpp"
 #include "cmake.hpp"
 #include "util/environment.hpp"
 #include <unistd.h>
@@ -167,7 +168,7 @@ struct conan : basic_builder<conan_spec, conan>
         return result;
     }
 
-    builder_base::ptr next_builder() const override { return cmake::create(root(), env()); }
+    builder_base::ptr next_builder() const override { return cmake_preset::create(root(), env()); }
 };
 
 };
