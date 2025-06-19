@@ -8,10 +8,12 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <ranges>
 #include <string>
 #include <string_view>
 #include <vector>
+
 using json = nlohmann::json;
 
 namespace vb::maker::builders {
@@ -29,61 +31,8 @@ using namespace std::literals;
 
 class presets_storage
 {
-    friend class cmake_preset;
-private:
-    static constexpr auto key_of(preset_type type)
-    {
-        static auto keys = std::array{ "configurePresets"sv, "buildPresets"sv, "testPresets"sv };
-        return keys[static_cast<std::size_t>(type)];
-    }
-
-    static auto get_presets(preset_type type, std::same_as<std::filesystem::path> auto ... files)
-        -> std::vector<std::string>
-        requires(sizeof...(files) >=1)
-    {
-        auto all_files = std::vector{files...};
-
-        auto presets = std::vector<std::string>{};
-
-        auto load_presets = [&](std::filesystem::path file_path) {
-            if (!std::filesystem::is_regular_file(file_path)) {
-                return;
-            }
-
-            auto content = json::parse(std::ifstream{ file_path });
-            if (content.contains("include")) {
-                for (const auto& [_, path_json] : content["include"].items()) {
-                    if (path_json.is_string()) {
-                        auto include_file = file_path.parent_path() / path_json.get<std::filesystem::path>();
-                        all_files.push_back(include_file);
-                    }
-                }
-            }
-
-            if (content.contains(key_of(type))) {
-                for (const auto& [_, current] : content[key_of(type)].items()) {
-                    presets.push_back(current["name"].get<std::string>());
-                }
-            }
-        };
-
-        for(auto file: all_files) {
-            std::print("load {}\n", file);
-            load_presets(file);
-        }
-    }
-
-    std::vector<preset> configure;
-    std::vector<preset> build;
-    std::vector<preset> test;
-
 public:
-    presets_storage(std::same_as<std::filesystem::path> auto ... files)
-        : configure{ get_presets(preset_type::configuration, files...) }
-        , build{ get_presets(preset_type::build, files...) }
-        , test{ get_presets(preset_type::test, files...) }
-    {
-    }
+    friend class cmake_preset;
 
     auto view_for(preset_type type) const
     {
@@ -98,7 +47,7 @@ public:
         throw std::logic_error(std::format("Invalid type {}.", type));
     }
 
-    auto appender_for(preset_type type) const
+    auto appender_for(preset_type type) 
     {
         switch (type) {
         case preset_type::configuration:
@@ -109,6 +58,57 @@ public:
             return std::back_inserter(test);
         }
         throw std::logic_error(std::format("Invalid type {}.", type));
+    }
+
+private:
+    static constexpr auto key_of(preset_type type)
+    {
+        static auto keys = std::array{ "configurePresets"sv, "buildPresets"sv, "testPresets"sv };
+        return keys[static_cast<std::size_t>(type)];
+    }
+
+    auto load_presets(std::filesystem::path file_path)
+    {
+        if (!std::filesystem::is_regular_file(file_path)) {
+            return;
+        }
+
+        auto content = json::parse(std::ifstream{ file_path });
+        if (content.contains("include")) {
+            for (const auto& [_, path_json] : content["include"].items()) {
+                if (path_json.is_string()) {
+                    auto include_file = file_path.parent_path() / path_json.get<std::filesystem::path>();
+                    load_presets(include_file);
+                }
+            }
+        }
+
+        for (auto type : { preset_type::configuration, preset_type::build, preset_type::test }) {
+            if (content.contains(key_of(type))) {
+                auto appender = appender_for(type);
+                for (const auto& [_, current] : content[key_of(type)].items()) {
+                    *appender = current["name"].get<std::string>();
+                }
+            }
+        }
+    }
+
+    std::vector<preset> configure;
+    std::vector<preset> build;
+    std::vector<preset> test;
+
+public:
+    presets_storage(std::same_as<std::filesystem::path> auto... files)
+        requires(sizeof...(files) >= 1)
+        : configure{}
+        , build{}
+        , test{}
+    {
+        auto all_files = std::vector{ files... };
+
+        for (auto file : all_files) {
+            load_presets(file);
+        }
     }
 };
 

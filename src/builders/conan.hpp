@@ -49,38 +49,44 @@ struct conan : basic_builder<conan_spec, conan>
 
     enum class build_types
     {
+        UNKNOWN = -1,
         Debug,
-        Relese,
+        Release,
         RelWithDebInfo
+    };
+
+    static constexpr auto all_types = std::array {
+        std::pair { build_types::Debug, "Debug"sv }, 
+        std::pair { build_types::Release, "Release"sv }, 
+        std::pair { build_types::RelWithDebInfo, "RelWithDebInfo"sv}
     };
 
     static constexpr build_types from(std::string_view name)
     {
-        if (name == "Debug") {
-            return build_types::Debug;
-        } else if (name == "Release") {
-            return build_types::Relese;
-        } else if (name == "RelWithDebInfo") {
-            return build_types::RelWithDebInfo;
+        for (auto [type, type_name] : all_types) {
+            if (name == type_name) {
+                return type;
+            }
         }
-        return Debug;
+        return UNKNOWN;
     }
 
     conan_profile current_profile;
 
     using enum build_types;
 
-    constexpr friend auto to_string(build_types TYPE)
+    constexpr friend auto to_string(build_types type)
     {
-        switch (TYPE) {
+        switch (type) {
         case Debug:
             return "Debug"s;
-        case Relese:
+        case Release:
             return "Release"s;
         case RelWithDebInfo:
             return "RelWithDebInfo"s;
+        default:
+            return "Debug"s;
         }
-        return "Debug"s;
     }
 
     static constexpr auto env_script(build_types type)
@@ -151,7 +157,7 @@ struct conan : basic_builder<conan_spec, conan>
     {
         execution_result result = execution_result::NOT_NEEDED;
         for (auto profile : profiles) {
-            for (auto build_type : { Debug, Relese, RelWithDebInfo }) {
+            for (auto build_type : { Debug, Release, RelWithDebInfo }) {
                 if (is_needed(profile, build_type)) {
                     std::println("Profile {} / Build {}", profile.name, to_string(build_type));
                     result = execute_step(result, profile, build_type);
