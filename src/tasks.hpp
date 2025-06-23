@@ -1,19 +1,21 @@
 #ifndef INCLUDED_PRESETS_HPP
 #define INCLUDED_PRESETS_HPP
 
-#include <array>
+#include <flat_map>
 #include <format>
+#include <utility>
 
 namespace vb::maker {
 
 using namespace std::literals;
 
-enum class task_type : char
+enum class task_type : int
 {
     pre_requisites,
     configuration,
     build,
-    test
+    test,
+    DONE
 };
 
 constexpr auto operator<=>(const task_type& type_a, const task_type& type_b)
@@ -21,16 +23,27 @@ constexpr auto operator<=>(const task_type& type_a, const task_type& type_b)
     return std::to_underlying(type_a) <=> std::to_underlying(type_b);
 }
 
-constexpr auto operator==(const task_type& type_a, const task_type& type_b)
--> bool = default;
-
-constexpr auto operator!=(const task_type& type_a, const task_type& type_b)
--> bool = default;
+constexpr auto next(const task_type& type) {
+    if (type == task_type::DONE) {
+        return type;
+    }
+    return task_type{std::to_underlying(type)+1};
+}
 
 constexpr auto task_name(task_type type)
 {
-    static auto keys = std::array{ "configure"sv, "build"sv, "test"sv };
-    return keys[static_cast<std::size_t>(type)];
+    static const auto keys = std::flat_map<task_type, std::string_view>{ 
+        { task_type::pre_requisites, "pre_requisites"sv},
+        { task_type::configuration, "configure"sv},
+        { task_type::build, "build"sv},
+        { task_type::test, "test"sv },
+        { task_type::DONE, "«done»"sv }
+    };
+    if (auto loc = keys.find(type); loc == std::end(keys)) {
+        return loc->second;
+    } else {
+        return "«UNKNOWN»"sv;
+    }
 }
 
 }

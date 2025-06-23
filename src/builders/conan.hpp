@@ -3,12 +3,12 @@
 
 #include "../builder.hpp"
 #include "builders/cmake_preset.hpp"
-#include "cmake.hpp"
 #include "util/environment.hpp"
 #include <unistd.h>
 
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <print>
 #include <ranges>
 
@@ -168,7 +168,7 @@ struct conan : basic_builder<conan_spec, conan>
         return result;
     }
 
-    builder_base::ptr next_builder() const override { return cmake_preset::create(root(), env()); }
+    builder_base::ptr next_builder() const override { return std::make_unique<cmake_preset>(task_type::configuration, root(), env()); }
 };
 
 };

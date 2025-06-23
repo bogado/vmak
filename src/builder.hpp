@@ -3,6 +3,7 @@
 
 #include "./result.hpp"
 #include "./work_directory.hpp"
+#include "./tasks.hpp"
 #include <util/environment.hpp>
 #include <util/filesystem.hpp>
 #include <util/string.hpp>
