@@ -195,7 +195,7 @@ public:
         case task_type::build:
             return root().execute(command, std::array{ "--build"sv, "--preset"sv, target }, env());
         case task_type::test:
-            return root().execute("ctest"sv, std::array{ "--preset"sv, target }, env());
+            return root().execute("ctest"sv, std::array{ "--output-on-failure"sv, "--preset"sv, target }, env());
         case task_type::DONE:
             return execution_result{"No action"};
         default:
