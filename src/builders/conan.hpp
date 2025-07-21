@@ -114,7 +114,7 @@ struct conan : basic_builder<conan_spec, conan>
         : basic_builder{ dir, env_.has_value() ? env_ : env::environment{} }
         , current_profile{ find_profile("CURRENT_PROFILE"_env.value_or("gcc")) }
     {
-        auto& environ                  = env();
+        auto& environ                  = environment();
         environ.set("CURRENT_PROFILE") = current_profile.name;
         environ.set("BUILD_DIR")       = current_profile.build_dir;
         environ.import("PATH");
@@ -151,7 +151,7 @@ struct conan : basic_builder<conan_spec, conan>
                             "-s"s,
                             "build_type="s + to_string(type),
                             root().path().string() },
-                env()));
+                environment()));
     }
 
     execution_result execute(std::string_view) const override // Target is ignored in this step.
@@ -168,7 +168,7 @@ struct conan : basic_builder<conan_spec, conan>
         return result;
     }
 
-    builder_base::ptr next_builder() const override { return std::make_unique<cmake_preset>(task_type::configuration, root(), env()); }
+    builder_base::ptr next_builder() const override { return std::make_unique<cmake_preset>(task_type::configuration, root(), environment()); }
 };
 
 };

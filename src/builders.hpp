@@ -21,6 +21,7 @@ struct jekyll_spec
     static constexpr std::string_view build_file = "_config.yml";
     static constexpr std::string_view command    = "jekyll";
     static constexpr std::array       arguments  = { "build"sv };
+    static constexpr std::array       import_env = { "" };
 };
 
 using jekyll = basic_builder<jekyll_spec>;

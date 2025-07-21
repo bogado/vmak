@@ -27,7 +27,7 @@ struct ninja : basic_builder<ninja_spec, ninja>
 
     fs::path build_file() const
     {
-        if (auto var = env().get(BUILD_FILE_VAR); var.has_value() && var.value().has_value()) {
+        if (auto var = environment().get(BUILD_FILE_VAR); var.has_value() && var.value().has_value()) {
             return fs::path{ var.value().value_str() };
         }
         return fs::path{};
@@ -36,7 +36,7 @@ struct ninja : basic_builder<ninja_spec, ninja>
     ninja(work_dir wd, env::environment::optional env_)
         : basic_builder{ wd, env_.has_value() ? env_ : env::environment{} }
     {
-        env().import(BUILD_FILE_VAR);
+        environment().import(BUILD_FILE_VAR);
     }
 
     std::vector<std::string> arguments(std::string_view target) const override

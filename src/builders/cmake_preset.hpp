@@ -191,11 +191,11 @@ public:
 
         switch (task) {
         case task_type::configuration:
-            return root().execute(command, std::array{ "--preset"sv, target }, env());
+            return root().execute(command, std::array{ "--preset"sv, target }, environment());
         case task_type::build:
-            return root().execute(command, std::array{ "--build"sv, "--preset"sv, target }, env());
+            return root().execute(command, std::array{ "--build"sv, "--preset"sv, target }, environment());
         case task_type::test:
-            return root().execute("ctest"sv, std::array{ "--output-on-failure"sv, "--preset"sv, target }, env());
+            return root().execute("ctest"sv, std::array{ "--output-on-failure"sv, "--preset"sv, target }, environment());
         case task_type::DONE:
             return execution_result{"No action"};
         default:
@@ -211,7 +211,7 @@ public:
         if (next_task == task_type::DONE) {
             return {};
         }
-        return std::make_unique<cmake_preset>(next_task, root(), env());
+        return std::make_unique<cmake_preset>(next_task, root(), environment());
     }
 
     std::string name() const override {

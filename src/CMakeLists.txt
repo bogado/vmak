@@ -14,7 +14,6 @@ enable_testing()
 find_package(fmt REQUIRED)
 find_package(nlohmann_json 3 REQUIRED)
 
-
 find_package(Catch2)
 
 if (Catch2_FOUND)

@@ -2,8 +2,8 @@
 #define INCLUDED_BUILDER_HPP
 
 #include "./result.hpp"
-#include "./work_directory.hpp"
 #include "./tasks.hpp"
+#include "./work_directory.hpp"
 #include <util/environment.hpp>
 #include <util/filesystem.hpp>
 #include <util/string.hpp>
@@ -39,9 +39,17 @@ struct builder_base
     virtual std::string name() const     = 0;
     virtual work_dir    root() const     = 0;
     virtual bool        required() const = 0;
-    virtual ptr         next_builder() const { return nullptr; }
+    virtual ptr         next_builder() const
+    {
+        return nullptr;
+    }
 
-    virtual fs::path         working_directory() const { return root().path(); }
+    virtual const env::environment& environment() const = 0;
+
+    virtual fs::path working_directory() const
+    {
+        return root().path();
+    }
     virtual execution_result execute(std::string_view target) const = 0;
 };
 
@@ -54,29 +62,36 @@ concept is_builder = is_runner<BUILDER> && std::derived_from<builder_base, BUILD
 template<typename SPEC_T>
 concept is_builder_spec = requires {
     requires is_string<decltype(SPEC_T::name)>;
+    requires is_string<decltype(SPEC_T::command)>;
     requires is_string<decltype(SPEC_T::build_file)> ||
                  (std::ranges::range<decltype(SPEC_T::build_files)> &&
                   std::same_as<std::ranges::range_value_t<decltype(SPEC_T::build_files)>, std::string_view>);
-    requires is_string<decltype(SPEC_T::command)>;
 };
+
+template<typename SPEC_T>
+concept specification_has_import =
+    is_builder_spec<SPEC_T> &&
+    std::ranges::range<decltype(SPEC_T::import_env)> &&
+    std::convertible_to<std::ranges::range_value_t<decltype(SPEC_T::import_view)>, std::string_view>;
 
 template<is_builder_spec SPECIFICATION, typename CLASS = void>
 struct basic_builder : builder_base
 {
 private:
+
     work_dir         my_root;
     env::environment my_env{};
     std::string      my_args{};
 
 public:
+
     static bool is_root(work_dir root)
     {
         if constexpr (requires {
                           { SPECIFICATION::build_files };
                       }) {
-            return std::ranges::any_of(SPECIFICATION::build_files, [&](const auto& filename) {
-                                           return root.has_file(filename);
-                                       });
+            return std::ranges::any_of(
+                SPECIFICATION::build_files, [&](const auto& filename) { return root.has_file(filename); });
         } else {
             return root.has_file(SPECIFICATION::build_file);
         }
@@ -112,23 +127,43 @@ public:
     {
         if constexpr (requires { SPECIFICATION::import_vars; }) {
             for (auto var_name : SPECIFICATION::import_vars) {
-                env().import(var_name);
+                environment().import(var_name);
             }
         }
-        for (auto var_name : std::array{ "HOME", "USER", "USERNAME", "UID", "PATH" }) {
-            env().import(var_name);
+        for (auto var_name : std::array{ "HOME"sv, "USER"sv, "USERNAME"sv, "PATH"sv, "LANG"sv, "LC_ALL"sv, "TERM"sv, "DISPLAY"sv, "WAYLAND_DISPLAY"sv }) {
+            environment().import(var_name);
+        }
+        if constexpr (specification_has_import<SPECIFICATION>) {
+            for (auto var_name : SPECIFICATION::import_env) {
+                environment().import(var_name);
+            }
         }
     }
 
-    std::string name() const override { return vb::to_string(SPECIFICATION::name); }
+    std::string name() const override
+    {
+        return vb::to_string(SPECIFICATION::name);
+    }
 
-    work_dir root() const override { return my_root; }
+    work_dir root() const override
+    {
+        return my_root;
+    }
 
-    basic_builder::ptr next_builder() const override { return nullptr; }
+    basic_builder::ptr next_builder() const override
+    {
+        return nullptr;
+    }
 
-    bool required() const override { return true; }
+    bool required() const override
+    {
+        return true;
+    }
 
-    auto run(std::string_view target) { return execute(arguments(target)); }
+    auto run(std::string_view target)
+    {
+        return execute(arguments(target));
+    }
 
     std::vector<std::string> arguments_builder(std::same_as<std::string_view> auto... args) const
     {
@@ -167,21 +202,30 @@ public:
             target_arg = target;
         }
 
-        return root().execute(command, arguments(target_arg), env());
+        return root().execute(command, arguments(target_arg), environment());
+    }
+
+    const env::environment& environment() const override
+    {
+        return my_env;
     }
 
 protected:
-    const auto& env() const { return my_env; }
 
-    auto& env() { return my_env; }
+    auto& environment()
+    {
+        return my_env;
+    }
 };
 
 struct builder : builder_base
 {
 private:
+
     builder_base::ptr impl;
 
 public:
+
     using optional = std::optional<builder>;
 
     constexpr builder() = default;
@@ -191,7 +235,10 @@ public:
     {
     }
 
-    explicit operator bool() const { return impl != nullptr; }
+    explicit operator bool() const
+    {
+        return impl != nullptr;
+    }
 
     std::string name() const override
     {
@@ -248,7 +295,15 @@ public:
         return builder{};
     }
 
-    fs::path working_directory() const override { return impl->working_directory(); }
+    const env::environment& environment() const override
+    {
+        return impl->environment();
+    }
+
+    fs::path working_directory() const override
+    {
+        return impl->working_directory();
+    }
 };
 } // namespace vb::maker
 

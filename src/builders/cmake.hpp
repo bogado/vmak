@@ -14,6 +14,11 @@ struct cmake_spec
     static constexpr std::string_view name       = "cmake";
     static constexpr std::string_view build_file = "CMakeLists.txt";
     static constexpr std::string_view command    = "cmake";
+    static constexpr auto import_env = std::array {
+        "CMAKE_BUILD_PARALLEL_LEVEL"sv,
+        "CMAKE_BUILD_TYPE"sv,
+        "CMAKE_MODULE_PATH"sv
+    };
 };
 
 struct cmake : basic_builder<cmake_spec, cmake>
@@ -33,11 +38,8 @@ struct cmake : basic_builder<cmake_spec, cmake>
         : basic_builder{ wd, env_ }
         , build_dir{ get_build(env_) }
     {
-        env().import("CMAKE_BUILD_PARALLEL_LEVEL");
-        env().import("CMAKE_BUILD_TYPE");
-        env().import("CMAKE_MODULE_PATH");
-        env().set("CMAKE_EXPORT_COMPILE_COMMANDS") = "true";
-        env().set("CMAKE_GENERATOR")               = "Ninja Multi-Config";
+        environment().set("CMAKE_EXPORT_COMPILE_COMMANDS") = "true";
+        environment().set("CMAKE_GENERATOR")               = "Ninja Multi-Config";
     }
 
     std::string build_dir;
@@ -45,12 +47,12 @@ struct cmake : basic_builder<cmake_spec, cmake>
     execution_result execute(std::string_view) const override // target ignored in this step.
     {
         using namespace std::literals;
-        if (env().contains("CMAKE_PRESET")) {
-            auto profile = env().value_for("CMAKE_PRESET").value_or("default");
+        if (environment().contains("CMAKE_PRESET")) {
+            auto profile = environment().value_for("CMAKE_PRESET").value_or("default");
             println("\tprofile: {}", profile);
-            return root().execute(command, std::array{ "--profile"s, profile }, env());
+            return root().execute(command, std::array{ "--profile"s, profile }, environment());
         } else {
-            return root().execute(command, std::array{ "-B"s, build_dir }, env());
+            return root().execute(command, std::array{ "-B"s, build_dir }, environment());
         }
     }
 
@@ -61,7 +63,7 @@ struct cmake : basic_builder<cmake_spec, cmake>
 
     builder_base::ptr next_builder() const override
     {
-        auto new_env = env();
+        auto new_env = environment();
         new_env.import("PATH");
         new_env.set("BUILD_DIR") = build_dir;
         return ninja::create(work_dir{ root().path() / build_dir }, new_env);

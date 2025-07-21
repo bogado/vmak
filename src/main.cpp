@@ -1,5 +1,8 @@
 #include "builders.hpp"
 
+#include <util/options.hpp>
+#include <util/converters.hpp>
+
 #include <ostream>
 #include <ranges>
 #include <string_view>
@@ -11,7 +14,9 @@ int
 main(int argc, const char *argv[])
 {
     auto args   = std::ranges::to<std::vector>(std::span(argv, static_cast<std::size_t>(argc)) | std::views::drop(1));
+
     auto target = std::string_view{};
+
     if (!args.empty()) {
         target = args.front();
     }
@@ -32,6 +37,7 @@ main(int argc, const char *argv[])
         std::println("{}", result);
 
         if (!result) {
+            std::println("Environment:\n{}", builder.environment());
             return 1;
         }
         builder = builder.next();
