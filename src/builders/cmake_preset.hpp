@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iterator>
 #include <ranges>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <flat_map>
@@ -49,9 +50,9 @@ class presets_storage
             return std::views::all(test);
         case task_type::DONE:
             throw std::runtime_error("Done");
-            
+        default:
+            throw std::logic_error(std::format("Invalid type {}.", type));
         }
-        throw std::logic_error(std::format("Invalid type {}.", type));
     }
 
     auto appender_for(task_type type)
@@ -67,8 +68,9 @@ class presets_storage
             return std::back_inserter(test);
         case task_type::DONE:
             throw std::runtime_error("Done");
+        default:
+            throw std::logic_error(std::format("Invalid type {}.", type));
         }
-        throw std::logic_error(std::format("Invalid type {}.", type));
     }
 
 private:

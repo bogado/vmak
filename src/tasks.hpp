@@ -3,20 +3,38 @@
 
 #include <flat_map>
 #include <format>
+#include <limits>
 #include <utility>
 
 namespace vb::maker {
 
 using namespace std::literals;
 
-enum class task_type : int
+enum class task_type : std::size_t
 {
     pre_requisites,
     configuration,
     build,
     test,
-    DONE
+    install,
+    DONE,
+    DYNAMIC = std::numeric_limits<std::size_t>::max()
 };
+
+static constexpr auto task_type_name(task_type type) {
+    static constexpr auto names = std::array {
+        "pre-requisites"sv,
+        "config"sv,
+        "build"sv,
+        "test"sv,
+        "install"sv
+    };
+
+    const auto index = std::to_underlying(type);
+    return index <= std::to_underlying(task_type::DONE) 
+        ? names.at(index)
+        : "undefined"sv;
+}
 
 constexpr auto operator<=>(const task_type& type_a, const task_type& type_b)
 {
@@ -37,7 +55,8 @@ constexpr auto task_name(task_type type)
         { task_type::configuration, "configure"sv},
         { task_type::build, "build"sv},
         { task_type::test, "test"sv },
-        { task_type::DONE, "«done»"sv }
+        { task_type::DONE, "DONE"sv },
+        { task_type::DYNAMIC, "dynamic"sv }
     };
     if (auto loc = keys.find(type); loc == std::end(keys)) {
         return loc->second;
