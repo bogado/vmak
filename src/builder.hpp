@@ -31,8 +31,18 @@ concept is_optional_runner = std::same_as<std::nullopt_t, OPT_RUNNER> || require
 
 struct builder_base
 {
-    using ptr     = std::unique_ptr<builder_base>;
-    using factory = ptr (*)(work_dir, env::environment::optional);
+    builder_base()                               = default;
+    builder_base(const builder_base&)            = default;
+    builder_base(builder_base&&)                 = default;
+    builder_base& operator=(const builder_base&) = default;
+    builder_base& operator=(builder_base&&)      = default;
+
+    friend struct builder;
+
+    using ptr            = std::unique_ptr<builder_base>;
+    using factory        = ptr (*)(work_dir, env::environment::optional);
+    using target_type    = std::string_view;
+    using arguments_type = std::vector<std::string>;
 
     virtual ~builder_base() = default;
 
