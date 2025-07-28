@@ -28,11 +28,14 @@ struct execution_result
     type                     status    = SUCCESS;
 
 public:
+
     constexpr operator bool() const
     {
         switch (status) {
         case NOT_NEEDED:
+            [[fallthrough]];
         case SOFT_FAILURE:
+            [[fallthrough]];
         case SUCCESS:
             return true;
         default:
@@ -46,7 +49,7 @@ public:
     }
 
     explicit execution_result(std::string what)
-        : error_output{std::move(what)}
+        : error_output{ std::move(what) }
         , output{}
         , exit_code{ -1 }
         , status{ FAILURE } {};
@@ -103,6 +106,7 @@ struct std::formatter<vb::execution_result, char>
             status = "Failure";
             break;
         case NOT_DONE:
+            [[fallthrough]];
         case NOT_NEEDED:
             status = "Skipped";
             break;
@@ -125,4 +129,5 @@ struct std::formatter<vb::execution_result, char>
         return out;
     }
 };
+
 #endif // INCLUDED_RESULT_HPP
