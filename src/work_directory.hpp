@@ -22,6 +22,7 @@ concept is_work_directory = requires(const WORKDIR dir) {
     { dir.path() } -> std::same_as<fs::path>;
     { dir.has_file(std::string{ "filename" }) } -> std::same_as<bool>;
     { dir.has_folder(std::string{ "filename" }) } -> std::same_as<bool>;
+    { dir.folder() } -> std::same_as<fs::path>;
     { dir.execute("command"sv, arguments{}) } -> std::convertible_to<bool>;
     { dir.execute("command"sv, env::environment::optional{}) } -> std::convertible_to<bool>;
     { dir.execute("command"sv, arguments{}, env::environment{}) } -> std::convertible_to<bool>;
@@ -41,6 +42,17 @@ struct work_dir
     bool has_file(std::string_view file) const { return fs::is_regular_file(root / file); }
 
     bool has_folder(std::string_view file) const { return fs::is_directory(root / file); }
+
+    fs::path folder(std::string_view sub_folder) const {
+        auto result = (root / sub_folder);
+        if (!has_folder(sub_folder)) {
+            std::error_code code;
+            if (!fs::create_directories(result, code)) {
+                throw std::system_error(code, std::format("Could not create build directory {}", result));
+            }
+        }
+        return result;
+    }
 
     auto execute(std::string_view command, std::ranges::contiguous_range auto args, env::environment::optional env = {})
         const -> execution_result
