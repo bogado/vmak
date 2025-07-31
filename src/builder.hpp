@@ -12,7 +12,10 @@
 #include <concepts>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string_view>
+#include <type_traits>
+#include <vector>
 
 namespace vb::maker {
 

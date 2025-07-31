@@ -17,29 +17,49 @@ using namespace std::literals;
 
 struct jekyll_spec
 {
-    static constexpr std::string_view name       = "Jekyll";
-    static constexpr std::string_view build_file = "_config.yml";
-    static constexpr std::string_view command    = "jekyll";
-    static constexpr std::array       arguments  = { "build"sv };
-    static constexpr std::array       import_env = { "" };
+    static constexpr auto stage = task_type::build;
+    static constexpr auto name       = "Jekyll"sv;
+    static constexpr auto build_file = "_config.yml"sv;
+    static constexpr auto command    = "jekyll"sv;
+    static constexpr auto arguments  = std::array{ "build"sv };
+    static constexpr auto import_env = std::array{ "" };
 };
 
 using jekyll = basic_builder<jekyll_spec>;
 
 struct make_spec
 {
-    static constexpr std::string_view name       = "make";
-    static constexpr std::string_view build_file = "Makefile";
-    static constexpr std::string_view command    = "make";
+    static constexpr auto stage = task_type::build;
+    static constexpr auto name       = "make"sv;
+    static constexpr auto build_file = "Makefile"sv;
+    static constexpr auto command    = "make"sv;
 };
 
 using make = basic_builder<make_spec>;
 
-inline const auto all_factories =
-    std::array{ make::create, conan::create, cmake_preset::create, cmake::create, ninja::create, jekyll::create };
+struct gnumake_spec
+{
+    static constexpr auto stage = task_type::build;
+    static constexpr auto name       = "gnumake"sv;
+    static constexpr auto build_file = "GNUmakefile"sv;
+    static constexpr auto command    = "gmake"sv;
+};
 
-builder_base::ptr
-select(work_dir root, env::environment::optional env = {})
+using gnumake = basic_builder<gnumake_spec>;
+
+struct meson_spec
+{
+    static constexpr auto stage = task_type::build;
+    static constexpr auto name       = "Meson"sv;
+    static constexpr auto build_file = "meson.build"sv;
+    static constexpr auto command    = "meson"sv;
+    static constexpr auto next_step  = ninja::create;
+};
+
+inline constexpr auto all_factories =
+    std::array{ make::create, gnumake::create, cmake_preset::create, cmake::create, ninja::create, jekyll::create };
+
+builder_base::ptr select(work_dir root, env::environment::optional env = {})
 {
     for (const auto& factory : all_factories) {
         if (auto ptr = factory(root, env); ptr != nullptr) {
