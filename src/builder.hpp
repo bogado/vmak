@@ -46,22 +46,74 @@ struct builder_base
 
     virtual ~builder_base() = default;
 
-    virtual std::string name() const     = 0;
-    virtual work_dir    root() const     = 0;
-    virtual bool        required() const = 0;
-    virtual ptr         next_builder() const
+    constexpr auto name() const
+    {
+        return get_name();
+    }
+
+    constexpr auto root() const
+    {
+        return get_root();
+    }
+
+    constexpr auto required() const
+    {
+        return get_required();
+    }
+
+    constexpr auto stage() const
+    {
+        return get_stage();
+    }
+
+    constexpr auto next_builder() const
+    {
+        return get_next_builder();
+    }
+
+    constexpr auto run(std::string_view target) const
+    {
+        return root().execute(get_command(target), get_arguments(target), get_environment(target));
+    }
+
+private:
+
+    virtual std::string get_name() const     = 0;
+    virtual work_dir    get_root() const     = 0;
+    virtual bool        get_required() const = 0;
+    virtual task_type   get_stage() const    = 0;
+    virtual ptr         get_next_builder() const
     {
         return nullptr;
     }
 
-    virtual const env::environment& environment() const = 0;
+    virtual std::string_view get_command(std::string_view target [[maybe_unused]]) const = 0;
+    
 
-    virtual fs::path working_directory() const
+    virtual arguments_type get_arguments(std::string_view target [[maybe_unused]]) const
+    {
+        return {};
+    }
+
+    virtual const env::environment& get_environment(std::string_view target [[maybe_unused]]) const = 0;
+
+    virtual fs::path get_working_directory(std::string_view target [[maybe_unused]]) const
     {
         return root().path();
     }
-    virtual execution_result execute(std::string_view target) const = 0;
 };
+
+template<typename TYPE, typename VALUE_T>
+concept one_or_many =
+    std::same_as<std::remove_cvref_t<TYPE>, VALUE_T> ||
+    (std::ranges::range<std::remove_cvref_t<TYPE>> && std::same_as<std::ranges::range_value_t<TYPE>, VALUE_T>);
+
+template<typename TYPE>
+concept one_or_many_strings = is_string<std::remove_cvref_t<TYPE>> || (std::ranges::range<std::remove_cvref_t<TYPE>> &&
+                                                                       is_string<std::ranges::range_value_t<TYPE>>);
+
+template<typename TYPE, typename VALUE_T>
+concept is_many_of = std::ranges::range<TYPE> && std::same_as<std::ranges::range_value_t<TYPE>, VALUE_T>;
 
 template<typename BUILDER>
 concept is_builder = is_runner<BUILDER> && std::derived_from<builder_base, BUILDER> && requires(const fs::path path) {
@@ -71,17 +123,15 @@ concept is_builder = is_runner<BUILDER> && std::derived_from<builder_base, BUILD
 
 template<typename SPEC_T>
 concept is_builder_spec = requires {
-    requires is_string<decltype(SPEC_T::name)>;
-    requires is_string<decltype(SPEC_T::command)>;
-    requires is_string<decltype(SPEC_T::build_file)> ||
-                 (std::ranges::range<decltype(SPEC_T::build_files)> &&
-                  std::same_as<std::ranges::range_value_t<decltype(SPEC_T::build_files)>, std::string_view>);
+    { SPEC_T::stage } -> std::convertible_to<task_type>;
+    { SPEC_T::name } -> is_string;
+    { SPEC_T::command } -> is_string;
+    { SPEC_T::build_file } -> one_or_many_strings;
 };
 
 template<typename SPEC_T>
 concept specification_has_import =
-    is_builder_spec<SPEC_T> &&
-    std::ranges::range<decltype(SPEC_T::import_env)> &&
+    is_builder_spec<SPEC_T> && std::ranges::range<decltype(SPEC_T::import_env)> &&
     std::convertible_to<std::ranges::range_value_t<decltype(SPEC_T::import_view)>, std::string_view>;
 
 template<is_builder_spec SPECIFICATION, typename CLASS = void>
@@ -97,11 +147,9 @@ public:
 
     static bool is_root(work_dir root)
     {
-        if constexpr (requires {
-                          { SPECIFICATION::build_files };
-                      }) {
+        if constexpr (is_many_of<decltype(SPECIFICATION::build_file), std::string_view>) {
             return std::ranges::any_of(
-                SPECIFICATION::build_files, [&](const auto& filename) { return root.has_file(filename); });
+                SPECIFICATION::build_file, [&](const auto& filename) { return root.has_file(filename); });
         } else {
             return root.has_file(SPECIFICATION::build_file);
         }
@@ -119,16 +167,7 @@ public:
         }
     };
 
-    static constexpr auto command    = SPECIFICATION::command;
-    static constexpr auto build_file = []() {
-        if constexpr (requires {
-                          { SPECIFICATION::build_file };
-                      }) {
-            return SPECIFICATION::build_file;
-        } else {
-            return SPECIFICATION::build_files;
-        }
-    }();
+    static constexpr auto build_file = SPECIFICATION::build_file;
 
     explicit basic_builder(work_dir rt, env::environment::optional env_, std::same_as<std::string_view> auto... args)
         : my_root{ rt }
@@ -140,7 +179,15 @@ public:
                 environment().import(var_name);
             }
         }
-        for (auto var_name : std::array{ "HOME"sv, "USER"sv, "USERNAME"sv, "PATH"sv, "LANG"sv, "LC_ALL"sv, "TERM"sv, "DISPLAY"sv, "WAYLAND_DISPLAY"sv }) {
+        for (auto var_name : std::array{ "HOME"sv,
+                                         "USER"sv,
+                                         "USERNAME"sv,
+                                         "PATH"sv,
+                                         "LANG"sv,
+                                         "LC_ALL"sv,
+                                         "TERM"sv,
+                                         "DISPLAY"sv,
+                                         "WAYLAND_DISPLAY"sv }) {
             environment().import(var_name);
         }
         if constexpr (specification_has_import<SPECIFICATION>) {
@@ -150,34 +197,36 @@ public:
         }
     }
 
-    std::string name() const override
+private:
+
+    std::string get_name() const override
     {
         return vb::to_string(SPECIFICATION::name);
     }
 
-    work_dir root() const override
+    work_dir get_root() const override
     {
         return my_root;
     }
 
-    basic_builder::ptr next_builder() const override
+    basic_builder::ptr get_next_builder() const override
     {
         return nullptr;
     }
 
-    bool required() const override
+    bool get_required() const override
     {
         return true;
     }
 
-    auto run(std::string_view target)
+    std::string_view get_command(std::string_view target [[maybe_unused]]) const override
     {
-        return execute(arguments(target));
+        return SPECIFICATION::command;
     }
 
-    std::vector<std::string> arguments_builder(std::same_as<std::string_view> auto... args) const
+    arguments_type arguments_builder(std::convertible_to<std::string_view> auto... args) const
     {
-        std::vector<std::string> result;
+        arguments_type result;
         if constexpr (requires { SPECIFICATION::arguments; }) {
             result.reserve(std::size(SPECIFICATION::arguments) + sizeof...(args));
             std::ranges::copy(
@@ -194,37 +243,46 @@ public:
         return result;
     }
 
-    virtual std::vector<std::string> arguments(std::string_view target) const
-    {
-        if (target.empty()) {
-            return arguments_builder();
-        } else {
-            return arguments_builder(target);
-        }
-    }
-
-    execution_result execute(std::string_view target = {}) const override
+    arguments_type get_arguments(std::string_view target) const override
     {
         std::string target_arg;
-        if constexpr (requires { SPECIFICATION::target_argument_prefix; }) {
-            target_arg = std::string(SPECIFICATION::target_argument_prefix) + std::string{ target };
-        } else {
-            target_arg = target;
+        if (!target.empty()) {
+            if constexpr (requires { SPECIFICATION::target_argument_prefix; }) {
+                target_arg = std::string(SPECIFICATION::target_argument_prefix) + std::string{ target };
+            } else {
+                target_arg = target;
+            }
         }
 
-        return root().execute(command, arguments(target_arg), environment());
+        return arguments_builder(target_arg);
     }
 
-    const env::environment& environment() const override
+    const env::environment& get_environment(std::string_view) const override
     {
-        return my_env;
+        return environment();
+    }
+
+    task_type get_stage() const override
+    {
+        return SPECIFICATION::stage;
     }
 
 protected:
 
-    auto& environment()
+    template<typename SELF>
+    auto& environment(this SELF&& self)
     {
-        return my_env;
+        return std::forward<SELF>(self).my_env;
+    }
+
+    arguments_type arguments(std::string_view target) const
+    {
+        return get_arguments(target);
+    }
+
+    std::string_view command(std::string_view target) const
+    {
+        return get_command(target);
     }
 };
 
@@ -250,7 +308,9 @@ public:
         return impl != nullptr;
     }
 
-    std::string name() const override
+private:
+
+    std::string get_name() const override
     {
         if (!*this) {
             return "«NO BUILDER»";
@@ -259,7 +319,15 @@ public:
         return impl->name();
     }
 
-    bool required() const override
+    task_type get_stage() const override
+    {
+        if (!*this) {
+            return task_type::DONE;
+        }
+        return impl->stage();
+    }
+
+    bool get_required() const override
     {
         if (!*this) {
             return false;
@@ -268,16 +336,7 @@ public:
         return impl->required();
     }
 
-    execution_result execute(std::string_view target = {}) const override
-    {
-        if (!*this) {
-            return execution_result::PANIC;
-        }
-
-        return impl->execute(target);
-    }
-
-    work_dir root() const override
+    work_dir get_root() const override
     {
         if (!*this) {
             return work_dir{};
@@ -286,7 +345,7 @@ public:
         return impl->root();
     }
 
-    ptr next_builder() const override
+    ptr get_next_builder() const override
     {
         if (!*this) {
             return nullptr;
@@ -295,24 +354,19 @@ public:
         return impl->next_builder();
     }
 
-    builder next() const
+    const env::environment& get_environment(std::string_view target) const override
     {
-        if (*this) {
-            if (auto nxt = impl->next_builder(); nxt != nullptr) {
-                return builder{ std::move(nxt) };
-            }
-        }
-        return builder{};
+        return impl->get_environment(target);
     }
 
-    const env::environment& environment() const override
+    fs::path get_working_directory(std::string_view target) const override
     {
-        return impl->environment();
+        return impl->get_working_directory(target);
     }
 
-    fs::path working_directory() const override
+    std::string_view get_command(std::string_view target) const override
     {
-        return impl->working_directory();
+        return impl->get_command(target);
     }
 };
 } // namespace vb::maker

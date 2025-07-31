@@ -3,6 +3,8 @@
 
 #include "../builder.hpp"
 #include "ninja.hpp"
+#include "tasks.hpp"
+
 #include <util/environment.hpp>
 
 #include <string_view>
@@ -11,14 +13,12 @@ namespace vb::maker::builders {
 
 struct cmake_spec
 {
+    static constexpr task_type        stage      = task_type::configuration;
     static constexpr std::string_view name       = "cmake";
     static constexpr std::string_view build_file = "CMakeLists.txt";
     static constexpr std::string_view command    = "cmake";
-    static constexpr auto import_env = std::array {
-        "CMAKE_BUILD_PARALLEL_LEVEL"sv,
-        "CMAKE_BUILD_TYPE"sv,
-        "CMAKE_MODULE_PATH"sv
-    };
+    static constexpr auto             import_env =
+        std::array{ "CMAKE_BUILD_PARALLEL_LEVEL"sv, "CMAKE_BUILD_TYPE"sv, "CMAKE_MODULE_PATH"sv };
 };
 
 struct cmake : basic_builder<cmake_spec, cmake>

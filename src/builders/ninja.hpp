@@ -2,6 +2,7 @@
 #define INCLUDED_NINJA_HPP
 
 #include "../builder.hpp"
+#include "tasks.hpp"
 
 #include <filesystem>
 #include <string>
@@ -13,6 +14,7 @@ using namespace vb::literals;
 
 struct ninja_spec
 {
+    static constexpr auto             stage       = task_type::build;
     static constexpr std::string_view name        = "ninja";
     static constexpr std::string_view build_file  = "build.ninja";
     static constexpr std::string_view command     = "ninja";
@@ -39,9 +41,10 @@ struct ninja : basic_builder<ninja_spec, ninja>
         environment().import(BUILD_FILE_VAR);
     }
 
-    std::vector<std::string> arguments(std::string_view target) const override
+private:
+    std::vector<std::string> get_arguments(std::string_view target) const override
     {
-        auto args = std::vector<std::string>{};
+        auto args = arguments(target);
         if (!build_file().empty() && fs::exists(work_dir().path() / build_file())) {
             args.push_back("-f"s);
             args.push_back(work_dir().path() / build_file());

@@ -32,15 +32,16 @@ main(int argc, const char *argv[])
     while (builder) {
         std::print("Running {}:", builder);
 
-        auto result = builder.execute(target);
+        auto result = builder.run(target);
 
         std::println("{}", result);
 
         if (!result) {
-            std::println("Environment:\n{}", builder.environment());
+            std::println("🚫 Builder {} failled \n{}", builder.name(), builder);
             return 1;
         }
-        builder = builder.next();
+
+        builder = builder.next_builder();
     }
     return 0;
 }
