@@ -13,10 +13,10 @@ namespace vb::maker::builders {
 
 struct cmake_spec
 {
-    static constexpr task_type        stage      = task_type::configuration;
-    static constexpr std::string_view name       = "cmake";
-    static constexpr std::string_view build_file = "CMakeLists.txt";
-    static constexpr std::string_view command    = "cmake";
+    static constexpr auto stage      = task_type::configuration;
+    static constexpr auto name       = "cmake"sv;
+    static constexpr auto build_file = "CMakeLists.txt"sv;
+    static constexpr auto command    = "cmake"sv;
     static constexpr auto             import_env =
         std::array{ "CMAKE_BUILD_PARALLEL_LEVEL"sv, "CMAKE_BUILD_TYPE"sv, "CMAKE_MODULE_PATH"sv };
 };
@@ -44,24 +44,14 @@ struct cmake : basic_builder<cmake_spec, cmake>
 
     std::string build_dir;
 
-    execution_result execute(std::string_view) const override // target ignored in this step.
-    {
-        using namespace std::literals;
-        if (environment().contains("CMAKE_PRESET")) {
-            auto profile = environment().value_for("CMAKE_PRESET").value_or("default");
-            println("\tprofile: {}", profile);
-            return root().execute(command, std::array{ "--profile"s, profile }, environment());
-        } else {
-            return root().execute(command, std::array{ "-B"s, build_dir }, environment());
-        }
-    }
-
-    bool required() const override
+    bool get_required() const override
     {
         return std::ranges::any_of(build_dirs, [&](const auto& folder_name) { return root().has_folder(folder_name); });
     }
 
-    builder_base::ptr next_builder() const override
+private:
+
+    builder_base::ptr get_next_builder() const override
     {
         auto new_env = environment();
         new_env.import("PATH");

@@ -3,20 +3,22 @@
 
 #include "../builder.hpp"
 #include "../tasks.hpp"
-#include "work_directory.hpp"
+#include "../work_directory.hpp"
+#include <bits/utility.h>
 #include <nlohmann/json.hpp>
 #include <util/environment.hpp>
 
 #include <filesystem>
+#include <flat_map>
+#include <format>
 #include <fstream>
 #include <iterator>
 #include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <flat_map>
+#include <utility>
 #include <vector>
-#include <format>
 
 using json = nlohmann::json;
 
@@ -24,9 +26,10 @@ namespace vb::maker::builders {
 
 struct cmake_preset_spec
 {
-    static constexpr std::string_view name        = "cmake - preset";
-    static constexpr auto             build_files = std::array{ "CMakeUserPresets.json"sv, "CMakePresets.json"sv };
-    static constexpr std::string_view command     = "cmake";
+    static constexpr auto stage      = task_type::DYNAMIC;
+    static constexpr auto name       = "cmake - preset"sv;
+    static constexpr auto build_file = std::array{ "CMakeUserPresets.json"sv, "CMakePresets.json"sv };
+    static constexpr auto command    = "cmake"sv;
 };
 
 using preset_type = std::string;
@@ -35,95 +38,51 @@ using namespace std::literals;
 
 class presets_storage
 {
+public:
+
     friend class cmake_preset;
+    using storage = std::vector<preset_type>;
+
+private:
+
+    static constexpr auto valid_types =
+        std::array{ task_type::configuration, task_type::build, task_type::test, task_type::package };
+    static constexpr auto preset_keys =
+        std::array{ "configurePresets"sv, "buildPresets"sv, "testPresets"sv, "testPresets"sv };
+
+    std::array<std::vector<preset_type>, std::to_underlying(task_type::DONE)> presets;
+
+    static constexpr auto locate(task_type type)
+    {
+        if (auto it = std::ranges::find(valid_types, type); it != valid_types.end()) {
+            return static_cast<std::size_t>(std::distance(valid_types.begin(), it));
+        } else {
+            throw std::domain_error{ std::format("no such type of cmake preset: {}\n", type) };
+        }
+    }
+
+    static constexpr auto key_of(task_type type)
+    {
+        return preset_keys.at(locate(type));
+    }
+
+    void load_presets(std::filesystem::path file_path);
+
+public:
 
     auto view_for(task_type type) const
     {
-        switch (type) {
-        case task_type::pre_requisites:
-            [[fallthrough]];
-        case task_type::configuration:
-            return std::views::all(configure);
-        case task_type::build:
-            return std::views::all(build);
-        case task_type::test:
-            return std::views::all(test);
-        case task_type::DONE:
-            throw std::runtime_error("Done");
-        default:
-            throw std::logic_error(std::format("Invalid type {}.", type));
-        }
+        return std::views::all(presets.at(locate(type)));
     }
 
-    auto appender_for(task_type type)
+    auto appender_for(std::size_t index)
     {
-        switch (type) {
-        case task_type::pre_requisites:
-            [[fallthrough]];
-        case task_type::configuration:
-            return std::back_inserter(configure);
-        case task_type::build:
-            return std::back_inserter(build);
-        case task_type::test:
-            return std::back_inserter(test);
-        case task_type::DONE:
-            throw std::runtime_error("Done");
-        default:
-            throw std::logic_error(std::format("Invalid type {}.", type));
-        }
+        return std::back_inserter(presets.at(index));
     }
 
-private:
-    static constexpr auto key_of(task_type type)
-    {
-        static const auto keys = std::flat_map<task_type, std::string_view>{
-            { task_type::configuration, "configurePresets"sv },
-            { task_type::build, "buildPresets"sv },
-            { task_type::test, "testPresets"sv }
-        };
-        if (auto found = keys.find(type); found != std::end(keys)) {
-            return found->second;
-        } else {
-            throw std::domain_error{std::format("no such type of preset: {}\n", type)};
-        }
-    }
-
-    auto load_presets(std::filesystem::path file_path)
-    {
-        if (!std::filesystem::is_regular_file(file_path)) {
-            return;
-        }
-
-        auto content = json::parse(std::ifstream{ file_path });
-        if (content.contains("include")) {
-            for (const auto& [_, path_json] : content["include"].items()) {
-                if (path_json.is_string()) {
-                    auto include_file = file_path.parent_path() / path_json.get<std::filesystem::path>();
-                    load_presets(include_file);
-                }
-            }
-        }
-
-        for (auto type : { task_type::configuration, task_type::build, task_type::test }) {
-            if (content.contains(key_of(type))) {
-                auto appender = appender_for(type);
-                for (const auto& [_, current] : content[key_of(type)].items()) {
-                    *appender = current["name"].get<std::string>();
-                }
-            }
-        }
-    }
-
-    std::vector<preset_type> configure;
-    std::vector<preset_type> build;
-    std::vector<preset_type> test;
-
-public:
     presets_storage(std::same_as<std::filesystem::path> auto... files)
         requires(sizeof...(files) >= 1)
-        : configure{}
-        , build{}
-        , test{}
+        : presets{}
     {
         auto all_files = std::vector{ files... };
 
@@ -133,14 +92,40 @@ public:
     }
 };
 
+inline void presets_storage::load_presets(std::filesystem::path file_path)
+{
+    if (!std::filesystem::is_regular_file(file_path)) {
+        return;
+    }
+
+    auto content = json::parse(std::ifstream{ file_path });
+    if (content.contains("include")) {
+        for (const auto& [_, path_json] : content["include"].items()) {
+            if (path_json.is_string()) {
+                auto include_file = file_path.parent_path() / path_json.get<std::filesystem::path>();
+                load_presets(include_file);
+            }
+        }
+    }
+
+    for (auto [index, key] : preset_keys | std::views::enumerate) {
+        auto appender = appender_for(static_cast<std::size_t>(index));
+        for (const auto& [_, current] : content[key].items()) {
+            *appender = current["name"].get<std::string>();
+        }
+    }
+}
+
 class cmake_preset : public basic_builder<cmake_preset_spec, cmake_preset>
 {
 public:
+
     using enum task_type;
 
 private:
+
     presets_storage my_presets;
-    task_type my_task = DONE;
+    task_type       my_task = configuration;
 
     static auto all_build_files()
     {
@@ -149,22 +134,13 @@ private:
             std::views::filter([](auto path) { return std::filesystem::is_regular_file(path); }));
     }
 
-    auto find_task(std::string_view target) const {
-        auto contains = [](const auto& collection, const auto& what) {
-            return std::ranges::find(collection, what) != std::end(collection);
-        };
-
-        if (contains(my_presets.configure, target)) {
-            return task_type::configuration;
-        } else if (contains(my_presets.build, target)) {
-            return task_type::build;
-        } else if (contains(my_presets.build, target)) {
-            return task_type::test;
-        }
+    constexpr task_type get_stage() const override
+    {
         return my_task;
     }
 
 public:
+
     using basic_builder<cmake_preset_spec, cmake_preset>::create;
 
     cmake_preset(work_dir wd, env::environment::optional env_)
@@ -176,55 +152,78 @@ public:
     cmake_preset(task_type task, work_dir wd, env::environment::optional env_)
         : basic_builder{ wd, env_ }
         , my_presets{ wd.path() / build_file[0], wd.path() / build_file[1] }
-        , my_task{task}
+        , my_task{ task }
     {
     }
 
-    execution_result execute(std::string_view target) const override
+    auto presets_for(task_type type) const
     {
-        using namespace std::literals;
-        auto task = my_task;
+        return my_presets.view_for(type);
+    }
 
-        if (target.empty()) {
-            target = my_presets.view_for(my_task).front();
-        } else {
-            task = find_task(target);
-        }
+private:
 
-        switch (task) {
+    arguments_type get_arguments(std::string_view target) const override
+    {
+        auto result = arguments(target);
+        auto append = [&](auto args) {
+            std::ranges::copy(
+                args | std::views::transform([](auto view) { return std::string{ view }; }),
+                std::back_inserter(result));
+        };
+        switch (my_task) {
         case task_type::configuration:
-            return root().execute(command, std::array{ "--preset"sv, target }, environment());
+            append(std::array{ "--preset"sv, target });
+            break;
         case task_type::build:
-            return root().execute(command, std::array{ "--build"sv, "--preset"sv, target }, environment());
+            append(std::array{ "--build"sv, "--preset"sv, target });
+            break;
         case task_type::test:
-            return root().execute("ctest"sv, std::array{ "--output-on-failure"sv, "--preset"sv, target }, environment());
-        case task_type::DONE:
-            return execution_result{"No action"};
+            append(std::array{ "--output-on-failure"sv, "--preset"sv, target });
+            break;
         default:
-            return execution_result{ std::format("Could not find preset type {} named {}", task, target) };
+            break;
+        }
+        return result;
+    }
+
+    std::string_view get_command(std::string_view target) const override
+    {
+        if (my_task == task_type::test) {
+            return "ctest"sv;
+        } else {
+            return command(target);
         }
     }
 
-    auto presets_for(task_type type) const { return my_presets.view_for(type); }
-
-    builder_base::ptr next_builder() const override
+    builder_base::ptr get_next_builder() const override
     {
-        auto next_task = next(my_task);
+        auto next_task = task_type::DONE;
+        switch (my_task) {
+        case task_type::configuration:
+            next_task = task_type::build;
+            break;
+        case task_type::build:
+            next_task = task_type::test;
+        default:
+            break;
+        }
         if (next_task == task_type::DONE) {
             return {};
         }
         return std::make_unique<cmake_preset>(next_task, root(), environment());
     }
 
-    std::string name() const override {
+    std::string get_name() const override
+    {
         static constexpr auto name = "cmake → preset";
         if (my_task != task_type::DONE) {
-            return std::format("{} «{}»",name, my_task);
+            return std::format("{} «{}»", name, my_task);
         }
         return name;
     }
 };
 
-}
+} // namespace vb::makers::
 
 #endif // INCLUDED_CMAKE_PRESET_HPP
