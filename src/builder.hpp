@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <concepts>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -372,6 +373,31 @@ private:
         return impl->get_command(target);
     }
 };
+
+struct builder_collection {
+    using value_type = builder;
+    using reference = value_type&;
+    using const_reference = const value_type&;
+    using difference_type = std::ptrdiff_t;
+    using size_type = std::size_t;
+    using storage_type = std::vector<builder::ptr>;
+
+    task_type my_type;
+    storage_type my_builders;
+
+    size_type size();
+
+    template <typename SELF>
+    auto begin(this SELF&& self) {
+        return std::forward<SELF>(self).builders.begin();
+    }
+ 
+    template <typename SELF>
+    auto end(this SELF&& self) {
+        return std::forward<SELF>(self).builders.end();
+    }
+};
+
 } // namespace vb::maker
 
 template<>
@@ -392,5 +418,6 @@ struct std::formatter<vb::maker::builder, char>
         return out;
     }
 };
+
 
 #endif // INCLUDED_BUILDER_HPP
