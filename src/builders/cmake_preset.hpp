@@ -119,7 +119,7 @@ inline void presets_storage::load_presets(std::filesystem::path file_path)
 class cmake_preset : public basic_builder<cmake_preset_spec, cmake_preset>
 {
 public:
-
+    using parent = basic_builder<cmake_preset_spec, cmake_preset>;
     using enum task_type;
 
 private:
@@ -192,7 +192,7 @@ private:
         if (my_task == task_type::test) {
             return "ctest"sv;
         } else {
-            return command(target);
+            return cmake_preset_spec::command;
         }
     }
 
