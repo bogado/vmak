@@ -56,8 +56,22 @@ struct meson_spec
     static constexpr auto next_step  = ninja::create;
 };
 
+using meson =  basic_builder<meson_spec>;
+
+struct cargo_spec
+{
+    static constexpr auto stage = task_type::build;
+    static constexpr auto name       = "Cargo"sv;
+    static constexpr auto build_file = "cargo.toml"sv;
+    static constexpr auto command    = "cargo"sv;
+    static constexpr auto next_step  = ninja::create;
+    static constexpr auto arguments  = std::array{ "build"sv };
+};
+
+using cargo = basic_builder<cargo_spec>;
+
 inline constexpr auto all_factories =
-    std::array{ make::create, gnumake::create, cmake_preset::create, cmake::create, ninja::create, jekyll::create };
+    std::array{ make::create, gnumake::create, cmake_preset::create, cmake::create, ninja::create, jekyll::create, cargo::create, meson::create};
 
 builder_base::ptr select(work_dir root, env::environment::optional env = {})
 {
