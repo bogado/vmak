@@ -56,7 +56,7 @@ constexpr auto task_name(task_type type)
                     std::pair<task_type, std::string_view>{ task_type::DYNAMIC, "dynamic"sv } };
     if (auto loc = std::ranges::find_if(keys, [type](const auto& value) { 
         return value.first == type;
-    }); loc == std::end(keys)) {
+    }); loc != std::end(keys)) {
         return loc->second;
     } else {
         return "«UNKNOWN»"sv;
