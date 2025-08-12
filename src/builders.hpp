@@ -6,6 +6,7 @@
 #include "builders/cmake_preset.hpp"
 #include "builders/conan.hpp"
 #include "builders/ninja.hpp"
+#include "tasks.hpp"
 #include <util/environment.hpp>
 
 #include <string_view>
@@ -17,7 +18,7 @@ using namespace std::literals;
 
 struct jekyll_spec
 {
-    static constexpr auto stage = task_type::build;
+    static constexpr auto stage      = task_type::build;
     static constexpr auto name       = "Jekyll"sv;
     static constexpr auto build_file = "_config.yml"sv;
     static constexpr auto command    = "jekyll"sv;
@@ -29,7 +30,7 @@ using jekyll = basic_builder<jekyll_spec>;
 
 struct make_spec
 {
-    static constexpr auto stage = task_type::build;
+    static constexpr auto stage      = task_type::build;
     static constexpr auto name       = "make"sv;
     static constexpr auto build_file = "Makefile"sv;
     static constexpr auto command    = "make"sv;
@@ -39,7 +40,7 @@ using make = basic_builder<make_spec>;
 
 struct gnumake_spec
 {
-    static constexpr auto stage = task_type::build;
+    static constexpr auto stage      = task_type::build;
     static constexpr auto name       = "gnumake"sv;
     static constexpr auto build_file = "GNUmakefile"sv;
     static constexpr auto command    = "gmake"sv;
@@ -49,18 +50,18 @@ using gnumake = basic_builder<gnumake_spec>;
 
 struct meson_spec
 {
-    static constexpr auto stage = task_type::build;
+    static constexpr auto stage      = task_type::build;
     static constexpr auto name       = "Meson"sv;
     static constexpr auto build_file = "meson.build"sv;
     static constexpr auto command    = "meson"sv;
     static constexpr auto next_step  = ninja::create;
 };
 
-using meson =  basic_builder<meson_spec>;
+using meson = basic_builder<meson_spec>;
 
 struct cargo_spec
 {
-    static constexpr auto stage = task_type::build;
+    static constexpr auto stage      = task_type::build;
     static constexpr auto name       = "Cargo"sv;
     static constexpr auto build_file = "cargo.toml"sv;
     static constexpr auto command    = "cargo"sv;
@@ -70,13 +71,30 @@ struct cargo_spec
 
 using cargo = basic_builder<cargo_spec>;
 
-inline constexpr auto all_factories =
-    std::array{ make::create, gnumake::create, cmake_preset::create, cmake::create, ninja::create, jekyll::create, cargo::create, meson::create};
-
-builder_base::ptr select(work_dir root, env::environment::optional env = {})
+struct factory
 {
-    for (const auto& factory : all_factories) {
-        if (auto ptr = factory(root, env); ptr != nullptr) {
+    builder_base::factory my_builder;
+    task_type             my_type;
+    std::string_view      my_name;
+
+    template<is_builder builder>
+    static constexpr factory for_class()
+    {
+        return factory{ builder::create, builder::stage, builder::builder_name };
+    }
+};
+
+inline constexpr auto all_factories =
+    std::array{ factory::for_class<make>(),  factory::for_class<gnumake>(), factory::for_class<cmake_preset>(),
+                factory::for_class<cmake>(), factory::for_class<ninja>(),   factory::for_class<jekyll>(),
+                factory::for_class<cargo>(), factory::for_class<meson>() };
+
+builder_base::ptr select(work_dir root, task_type type, env::environment::optional env = {})
+{
+    for (const auto& factory : all_factories | std::views::filter([&](auto fac) {
+                                   return fac.my_type == type;
+                               })) {
+        if (auto ptr = factory.my_builder(root, env); ptr != nullptr) {
             return ptr;
         }
     }

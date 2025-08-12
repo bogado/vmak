@@ -23,6 +23,7 @@ struct ninja_spec
 
 struct ninja : basic_builder<ninja_spec, ninja>
 {
+    using parent = basic_builder<ninja_spec, ninja>;
     using basic_builder<ninja_spec, ninja>::create;
 
     static constexpr auto BUILD_FILE_VAR = "NINJA_FILE";
@@ -42,9 +43,9 @@ struct ninja : basic_builder<ninja_spec, ninja>
     }
 
 private:
-    std::vector<std::string> get_arguments(std::string_view target) const override
+    arguments_type get_arguments(std::string_view target) const override
     {
-        auto args = arguments(target);
+        auto args = parent::arguments_builder(target);
         if (!build_file().empty() && fs::exists(work_dir().path() / build_file())) {
             args.push_back("-f"s);
             args.push_back(work_dir().path() / build_file());

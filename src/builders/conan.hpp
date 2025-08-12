@@ -52,7 +52,9 @@ private:
             "│{}",
             rc,
             std::ranges::to<std::string>(
-                args | std::views::transform([](const auto& arg) { return "'"s + std::string{ arg } + "'"s; }) |
+                args | std::views::transform([](const auto& arg) {
+                    return "'"s + std::string{ arg } + "'"s;
+                }) |
                 std::views::join_with(" "s)),
             std::ranges::to<std::string>(stderr | std::views::join_with("│"s)));
     }
@@ -211,13 +213,13 @@ struct conan_profile
 {
 private:
 
-    std::string_view storage_view()
+    constexpr std::string_view storage_view()
     {
-        if (!storage.has_value()) {
+        if (!storage) {
             return {};
         }
 
-        return storage.value();
+        return *storage;
     }
 
 public:
@@ -228,15 +230,20 @@ public:
         , build_dir{ repr.substr(name.size() + 1, repr.find('/') - name.size() - 1) }
         , generator_dir{ repr.substr(name.size() + build_dir.size() + 2) }
     {
-        static_assert(std::is_constant_evaluated());
+        if !consteval {
+            std::abort();
+        }
     }
 
     explicit conan_profile(std::string arg_name, std::string arg_build_dir, std::string arg_generator_dir)
-        : storage(arg_name + arg_build_dir + arg_generator_dir)
+        : storage{ arg_name + arg_build_dir + arg_generator_dir }
         , name{ storage_view().substr(0, arg_name.size()) }
         , build_dir{ storage_view().substr(name.size(), arg_build_dir.size()) }
         , generator_dir{ storage_view().substr(name.size() + arg_build_dir.size()) }
     {
+        if consteval {
+            throw std::logic_error("Invalid constexpr initialization");
+        }
     }
 
     std::optional<std::string> storage{};
@@ -310,14 +317,16 @@ struct conan : basic_builder<conan_spec, conan>
     static constexpr auto env_script(build_types type)
     {
         auto script = "conanbuildenv-"s + to_string(type);
-        std::ranges::transform(script, std::begin(script), [](auto c) { return std::tolower(c); });
+        std::ranges::transform(script, std::begin(script), [](auto c) {
+            return std::tolower(c);
+        });
         return script;
     }
 
-    static inline constexpr auto profiles = std::array{ conan_profile{ "gcc:build/gcc/generators"sv },
-                                                        conan_profile{ "clang:build_clang/clang/generators"sv } };
+    static inline auto profiles = std::array{ conan_profile{ "gcc:build/gcc/generators"sv },
+                                              conan_profile{ "clang:build_clang/clang/generators"sv } };
 
-    constexpr static auto find_profile(std::string_view profile)
+    constexpr static const auto& find_profile(std::string_view profile)
     {
         if (auto build_dir_it = std::ranges::find(profiles, profile, &conan_profile::name);
             build_dir_it != std::end(profiles)) {
@@ -389,14 +398,14 @@ struct std::formatter<vb::maker::builders::details::conan_configuration>
         FORMAT_CONTEXT&                                          context) const
     {
         auto out = context.out();
-        return std::ranges::copy(configuration.keys() | std::views::transform([&](const auto& key) {
-                                   const auto quote = "\""s;
-                                   auto value = configuration[key];
-                                   return quote + key + "\" : "s + (
-                                          !value.empty() 
-                                          ? quote + value + quote 
-                                          : "null"s);
-                               }) | std::views::join_with(", "s), out).out;
+        return std::ranges::copy(
+                   configuration.keys() | std::views::transform([&](const auto& key) {
+                       const auto quote = "\""s;
+                       auto       value = configuration[key];
+                       return quote + key + "\" : "s + (!value.empty() ? quote + value + quote : "null"s);
+                   }) | std::views::join_with(", "s),
+                   out)
+            .out;
     }
 };
 
@@ -415,10 +424,10 @@ struct std::formatter<vb::maker::builders::conan_profile>
         FORMAT_CONTEXT&                           context) const
     {
         auto out = context.out();
-        out = std::ranges::copy(profile.name, out).out;
-        *out = ':';
+        out      = std::ranges::copy(profile.name, out).out;
+        *out     = ':';
         ++out;
-        out = std::ranges::copy(profile.build_dir, out).out;
+        out  = std::ranges::copy(profile.build_dir, out).out;
         *out = '/';
         ++out;
         out = std::ranges::copy(profile.generator_dir, out).out;

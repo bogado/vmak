@@ -149,10 +149,10 @@ public:
     {
     }
 
-    cmake_preset(task_type task, work_dir wd, env::environment::optional env_)
+    cmake_preset(task_type current_stage, work_dir wd, env::environment::optional env_)
         : basic_builder{ wd, env_ }
         , my_presets{ wd.path() / build_file[0], wd.path() / build_file[1] }
-        , my_task{ task }
+        , my_task{ current_stage }
     {
     }
 
@@ -187,7 +187,7 @@ private:
         return result;
     }
 
-    std::string_view get_command(std::string_view target) const override
+    std::string_view get_command(std::string_view) const override
     {
         if (my_task == task_type::test) {
             return "ctest"sv;

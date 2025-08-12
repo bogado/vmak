@@ -21,10 +21,9 @@
 namespace vb::maker {
 
 template<typename RUNNER>
-concept is_runner = requires(const RUNNER runner) {
-    { runner.working_directory() } -> std::same_as<fs::path>;
-    { runner.run() } -> std::same_as<execution_result>;
-    { runner.run(std::string_view{}) } -> std::same_as<execution_result>;
+concept is_runner = requires(const RUNNER runner, std::string_view target) {
+    { runner.working_directory(target) } -> std::same_as<fs::path>;
+    { runner.run(target) } -> std::same_as<execution_result>;
 };
 
 template<typename OPT_RUNNER>
@@ -80,6 +79,11 @@ struct builder_base
         return root().execute(get_command(target), get_arguments(target), get_environment(target));
     }
 
+    constexpr auto working_directory(std::string_view target) const
+    {
+        return get_working_directory(target);
+    }
+
 private:
 
     virtual std::string get_name() const     = 0;
@@ -92,12 +96,8 @@ private:
     }
 
     virtual std::string_view get_command(std::string_view target [[maybe_unused]]) const = 0;
-    
 
-    virtual arguments_type get_arguments(std::string_view target [[maybe_unused]]) const
-    {
-        return {};
-    }
+    virtual arguments_type get_arguments(std::string_view target [[maybe_unused]]) const = 0;
 
     virtual const env::environment& get_environment(std::string_view target [[maybe_unused]]) const = 0;
 
@@ -120,10 +120,11 @@ template<typename TYPE, typename VALUE_T>
 concept is_many_of = std::ranges::range<TYPE> && std::same_as<std::ranges::range_value_t<TYPE>, VALUE_T>;
 
 template<typename BUILDER>
-concept is_builder = is_runner<BUILDER> && std::derived_from<builder_base, BUILDER> && requires(const fs::path path) {
-    { BUILDER::is_root(path) } -> std::same_as<bool>;
-    { BUILDER::task } -> std::same_as<task_type>;
-};
+concept is_builder = is_runner<BUILDER> && std::derived_from<BUILDER, builder_base> &&
+                     std::same_as<decltype(BUILDER::builder_name), const std::string_view> &&
+                     std::convertible_to<decltype(BUILDER::stage), task_type> && requires(const work_dir path) {
+                         { BUILDER::is_root(path) } -> std::convertible_to<bool>;
+                     };
 
 template<typename SPEC_T>
 concept is_builder_spec = requires {
@@ -138,6 +139,9 @@ concept specification_has_import =
     is_builder_spec<SPEC_T> && std::ranges::range<decltype(SPEC_T::import_env)> &&
     std::convertible_to<std::ranges::range_value_t<decltype(SPEC_T::import_view)>, std::string_view>;
 
+template<typename SPEC_T>
+concept specification_has_arguments = is_builder_spec<SPEC_T> && one_or_many_strings<decltype(SPEC_T::arguments)>;
+
 template<is_builder_spec SPECIFICATION, typename CLASS = void>
 struct basic_builder : builder_base
 {
@@ -149,13 +153,18 @@ private:
 
 public:
 
+    using specification_type           = SPECIFICATION;
+    static constexpr auto stage        = specification_type::stage;
+    static constexpr auto builder_name = specification_type::name;
+
     static bool is_root(work_dir root)
     {
-        if constexpr (is_many_of<decltype(SPECIFICATION::build_file), std::string_view>) {
-            return std::ranges::any_of(
-                SPECIFICATION::build_file, [&](const auto& filename) { return root.has_file(filename); });
+        if constexpr (is_many_of<decltype(specification_type::build_file), std::string_view>) {
+            return std::ranges::any_of(specification_type::build_file, [&](const auto& filename) {
+                return root.has_file(filename);
+            });
         } else {
-            return root.has_file(SPECIFICATION::build_file);
+            return root.has_file(specification_type::build_file);
         }
     }
 
@@ -171,41 +180,75 @@ public:
         }
     };
 
-    static constexpr auto build_file = SPECIFICATION::build_file;
+    static constexpr auto build_file = specification_type::build_file;
 
     explicit basic_builder(work_dir rt, env::environment::optional env_, std::same_as<std::string_view> auto... args)
         : my_root{ rt }
         , my_env{ env_.value_or(env::environment{}) }
         , my_args{ args... }
     {
-        if constexpr (requires { SPECIFICATION::import_vars; }) {
-            for (auto var_name : SPECIFICATION::import_vars) {
+        if constexpr (requires { specification_type::import_vars; }) {
+            for (auto var_name : specification_type::import_vars) {
                 environment().import(var_name);
             }
         }
-        for (auto var_name : std::array{ "HOME"sv,
-                                         "USER"sv,
-                                         "USERNAME"sv,
-                                         "PATH"sv,
-                                         "LANG"sv,
-                                         "LC_ALL"sv,
-                                         "TERM"sv,
-                                         "DISPLAY"sv,
-                                         "WAYLAND_DISPLAY"sv }) {
-            environment().import(var_name);
-        }
-        if constexpr (specification_has_import<SPECIFICATION>) {
-            for (auto var_name : SPECIFICATION::import_env) {
+
+        if constexpr (specification_has_import<specification_type>) {
+            for (auto var_name : specification_type::import_env) {
                 environment().import(var_name);
             }
         }
     }
 
+protected:
+
+    arguments_type arguments_builder(std::convertible_to<std::string_view> auto... args) const
+    {
+        arguments_type result;
+        if constexpr (specification_has_arguments<specification_type>) {
+            using args_spec_type = decltype(specification_type::arguments);
+
+            if constexpr (std::ranges::sized_range<args_spec_type>) {
+                result.reserve(std::size(specification_type::arguments) + sizeof...(args));
+            } else {
+                result.reserve(sizeof...(args));
+            }
+
+            if constexpr (std::ranges::range<args_spec_type>) {
+                std::ranges::copy(transform_args(specification_type::arguments), std::back_inserter(result));
+            } else if (!specification_type::arguments.empty()) {
+                result.push_back(specification_type::arguments);
+            }
+        } else {
+            result.reserve(sizeof...(args));
+        }
+
+        if constexpr (sizeof...(args) > 0) {
+            auto args_arr = std::array{ std::string_view{args}... };
+            std::ranges::copy(transform_args(args_arr), std::back_inserter(result));
+        }
+
+        return result;
+    }
+
 private:
+
+    static auto transform_args(const std::ranges::viewable_range auto& args)
+    {
+        return args | std::views::transform([](auto view) -> std::string {
+            if (view.empty()) {
+                return std::string{};
+            } else {
+                return std::string{ view };
+            }
+        }) | std::views::filter([](const auto& v) {
+            return !v.empty();
+        });
+    }
 
     std::string get_name() const override
     {
-        return vb::to_string(SPECIFICATION::name);
+        return vb::to_string(builder_name);
     }
 
     work_dir get_root() const override
@@ -225,26 +268,7 @@ private:
 
     std::string_view get_command(std::string_view target [[maybe_unused]]) const override
     {
-        return SPECIFICATION::command;
-    }
-
-    arguments_type arguments_builder(std::convertible_to<std::string_view> auto... args) const
-    {
-        arguments_type result;
-        if constexpr (requires { SPECIFICATION::arguments; }) {
-            result.reserve(std::size(SPECIFICATION::arguments) + sizeof...(args));
-            std::ranges::copy(
-                SPECIFICATION::arguments | std::views::transform([](const auto& arg) { return vb::to_string(arg); }),
-                std::back_inserter(result));
-        } else {
-            result.reserve(sizeof...(args));
-        }
-        if constexpr (sizeof...(args) > 0) {
-            std::ranges::copy(
-                std::array{ args... } | std::views::transform([](std::string_view view) { return std::string(view); }),
-                std::back_inserter(result));
-        }
-        return result;
+        return specification_type::command;
     }
 
     arguments_type get_arguments(std::string_view target) const override
@@ -268,7 +292,7 @@ private:
 
     task_type get_stage() const override
     {
-        return SPECIFICATION::stage;
+        return specification_type::stage;
     }
 
 protected:
@@ -372,28 +396,36 @@ private:
     {
         return impl->get_command(target);
     }
+
+    arguments_type get_arguments(std::string_view target) const override
+    {
+        return impl->get_arguments(target);
+    }
 };
 
-struct builder_collection {
-    using value_type = builder;
-    using reference = value_type&;
+struct builder_collection
+{
+    using value_type      = builder;
+    using reference       = value_type&;
     using const_reference = const value_type&;
     using difference_type = std::ptrdiff_t;
-    using size_type = std::size_t;
-    using storage_type = std::vector<builder::ptr>;
+    using size_type       = std::size_t;
+    using storage_type    = std::vector<builder::ptr>;
 
-    task_type my_type;
+    task_type    my_type;
     storage_type my_builders;
 
     size_type size();
 
-    template <typename SELF>
-    auto begin(this SELF&& self) {
+    template<typename SELF>
+    auto begin(this SELF&& self)
+    {
         return std::forward<SELF>(self).builders.begin();
     }
- 
-    template <typename SELF>
-    auto end(this SELF&& self) {
+
+    template<typename SELF>
+    auto end(this SELF&& self)
+    {
         return std::forward<SELF>(self).builders.end();
     }
 };
@@ -418,6 +450,5 @@ struct std::formatter<vb::maker::builder, char>
         return out;
     }
 };
-
 
 #endif // INCLUDED_BUILDER_HPP
