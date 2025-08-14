@@ -49,14 +49,8 @@ struct cmake : basic_builder<cmake_spec, cmake>
 
 private:
 
-    arguments_type get_arguments(std::string_view target) const override {
-        auto arguments = arguments_builder("--build"sv, build_dir);
-
-         if (!target.empty()) {
-             auto target_args = std::array{ "--target"sv, target};
-             arguments.insert_range(std::end(arguments), target_args | std::views::transform([](auto v) { return std::string{v}; }));
-         }
-         return arguments;
+    arguments_type get_arguments(std::string_view) const override  {
+        return arguments_builder("-B", get_build(environment()));
     }
 
     bool get_required() const override
