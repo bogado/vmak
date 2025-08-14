@@ -9,6 +9,8 @@
 #include <vector>
 
 using namespace vb;
+using namespace std::literals;
+
 constexpr auto default_environment = std::array{
     "DISPLAY"sv,
     "GID"sv,
