@@ -90,7 +90,7 @@ int main(int argc, const char *argv[])
         std::println("{}", result);
 
         if (!result) {
-            std::println("🚫 Builder {} failled \n{}", builder.name(), builder);
+            std::println("🚫 Builder {} failled at stage {} \n{}", builder.name(), builder.stage(), result);
             return 1;
         }
 
