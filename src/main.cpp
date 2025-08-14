@@ -72,8 +72,8 @@ int main(int argc, const char *argv[])
 
     auto builder = maker::builder{};
     auto current = maker::work_dir{};
-    for (auto task : vb::maker::all_tasks) {
-        builder = maker::builders::select(current, task, env);
+    for (auto stage : vb::maker::all_stages) {
+        builder = maker::builders::select(current, stage, env);
         if (builder && builder.required()) {
             break;
         }

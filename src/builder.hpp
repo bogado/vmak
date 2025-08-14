@@ -89,7 +89,7 @@ private:
     virtual std::string get_name() const     = 0;
     virtual work_dir    get_root() const     = 0;
     virtual bool        get_required() const = 0;
-    virtual task_type   get_stage() const    = 0;
+    virtual Stage       get_stage() const    = 0;
     virtual ptr         get_next_builder() const
     {
         return nullptr;
@@ -290,9 +290,9 @@ private:
         return environment();
     }
 
-    task_type get_stage() const override
+    Stage get_stage() const override
     {
-        return specification_type::stage;
+        return Stage{specification_type::stage};
     }
 
 protected:
@@ -347,10 +347,10 @@ private:
         return impl->name();
     }
 
-    task_type get_stage() const override
+    Stage get_stage() const override
     {
         if (!*this) {
-            return task_type::DONE;
+            return Stage{task_type::DONE};
         }
         return impl->stage();
     }

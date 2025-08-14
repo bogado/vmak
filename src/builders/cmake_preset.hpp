@@ -134,9 +134,9 @@ private:
             std::views::filter([](auto path) { return std::filesystem::is_regular_file(path); }));
     }
 
-    constexpr task_type get_stage() const override
+    constexpr Stage get_stage() const override
     {
-        return my_task;
+        return Stage{my_task};
     }
 
 public:

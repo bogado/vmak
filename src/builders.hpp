@@ -89,10 +89,10 @@ inline constexpr auto all_factories =
                 factory::for_class<cmake>(), factory::for_class<ninja>(),   factory::for_class<jekyll>(),
                 factory::for_class<cargo>(), factory::for_class<meson>() };
 
-builder_base::ptr select(work_dir root, task_type type, env::environment::optional env = {})
+builder_base::ptr select(work_dir root, Stage stage, env::environment::optional env = {})
 {
     for (const auto& factory : all_factories | std::views::filter([&](auto fac) {
-                                   return fac.my_type == type;
+                                   return fac.my_type == stage.type();
                                })) {
         if (auto ptr = factory.my_builder(root, env); ptr != nullptr) {
             return ptr;
