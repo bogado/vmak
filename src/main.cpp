@@ -1,4 +1,6 @@
+#include "arguments.hpp"
 #include "builders.hpp"
+#include "tasks.hpp"
 #include <util/converters.hpp>
 #include <util/environment.hpp>
 #include <util/options.hpp>
@@ -54,9 +56,25 @@ constexpr auto default_environment = std::array{
     "XDG_VIDEOS_DIR"sv,
 };
 
+
 int main(int argc, const char *argv[])
 {
-    auto args = std::ranges::to<std::vector>(std::span(argv, static_cast<std::size_t>(argc)) | std::views::drop(1));
+    using namespace vb;
+    auto all_arguments = maker::build_arguments(argc, argv);
+
+    auto args = maker::drop_command(all_arguments);
+
+    auto main_options = maker::main_arguments(args);
+
+    if (auto found = maker::find_argument(main_options, "-h"sv, "--help"sv, "-?"sv); found.has_value()) {
+        std::println("Usage: {} «Options» ---«stage» options for stages", maker::command_from_args(all_arguments));
+        for(auto stage : vb::maker::all_stages) {
+            std::println("\t---{} : stage {} - {}",stage.option(), stage.name(), stage.information()); 
+        }
+        std::println("\t--help, -h, -? : {}", "This message");
+
+        return 0;
+    }
 
     auto target = std::string_view{};
 
@@ -72,7 +90,7 @@ int main(int argc, const char *argv[])
 
     auto builder = maker::builder{};
     auto current = maker::work_dir{};
-    for (auto stage : vb::maker::all_stages) {
+    for (auto stage : maker::all_stages) {
         builder = maker::builders::select(current, stage, env);
         if (builder && builder.required()) {
             break;
@@ -85,9 +103,9 @@ int main(int argc, const char *argv[])
     }
 
     while (builder) {
-        std::println("Running {}:", builder);
+        std::println("Running stage {} → {}:", builder.stage(), builder);
 
-        auto result = builder.run(target);
+        auto result = builder.run(target, maker::filter_arguments(all_arguments, builder.stage()));
 
         std::println("{}", result);
 

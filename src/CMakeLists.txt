@@ -16,7 +16,10 @@ find_package(nlohmann_json 3 REQUIRED)
 find_package(Catch2)
 
 if (Catch2_FOUND)
-    add_executable(vmak_test tests/test.cpp)
+    add_executable(vmak_test
+        tests/arguments_tests.cpp
+        tests/test.cpp
+    )
 
     setup_target(vmak_test PRIVATE)
     target_link_libraries(vmak_test PRIVATE vmak_lib Catch2::Catch2WithMain)

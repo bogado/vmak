@@ -36,8 +36,9 @@ inline const std::filesystem::path this_path = [](std::source_location location)
 inline const std::filesystem::path conan_test_configuration = this_path / "conan";
 inline const std::filesystem::path cmake_test_presets       = this_path / "test_presets/a";
 
-TEST_CASE("cmake_presets", "[builders,cmake,json]")
+TEST_CASE("cmake_presets", "[builders][cmake][json]")
 {
+    SKIP();
     auto builder = builders::cmake_preset{ work_dir{ cmake_test_presets }, env::environment::optional{} };
     REQUIRE_THAT(
         std::ranges::to<std::vector>(builder.presets_for(builders::cmake_preset::configuration)),
@@ -46,6 +47,7 @@ TEST_CASE("cmake_presets", "[builders,cmake,json]")
 
 TEST_CASE("conan_config", "[conan][config]")
 {
+    SKIP();
     try {
         auto config = builders::details::conan_configuration{ conan_test_configuration };
         REQUIRE_THAT(

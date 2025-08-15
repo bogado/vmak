@@ -4,6 +4,7 @@
 #include "./result.hpp"
 #include "./tasks.hpp"
 #include "./work_directory.hpp"
+#include "arguments.hpp"
 #include <util/environment.hpp>
 #include <util/filesystem.hpp>
 #include <util/string.hpp>
@@ -11,6 +12,7 @@
 #include <algorithm>
 #include <concepts>
 #include <cstddef>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -21,9 +23,9 @@
 namespace vb::maker {
 
 template<typename RUNNER>
-concept is_runner = requires(const RUNNER runner, std::string_view target) {
+concept is_runner = requires(const RUNNER runner, std::string_view target, basic_argument_list args) {
     { runner.working_directory(target) } -> std::same_as<fs::path>;
-    { runner.run(target) } -> std::same_as<execution_result>;
+    { runner.run(target, args) } -> std::same_as<execution_result>;
 };
 
 template<typename OPT_RUNNER>
@@ -74,9 +76,11 @@ struct builder_base
         return get_next_builder();
     }
 
-    constexpr auto run(std::string_view target) const
+    constexpr auto run(std::string_view target, is_argument_view auto args) const
     {
-        return root().execute(get_command(target), get_arguments(target), get_environment(target));
+        auto argument_list = to_argument_list(args);
+        std::ranges::copy(get_arguments(target), std::back_inserter(argument_list));
+        return root().execute(get_command(target), argument_list, get_environment(target));
     }
 
     constexpr auto working_directory(std::string_view target) const
