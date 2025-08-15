@@ -1,0 +1,63 @@
+= `vmak`: An automatic builder for different types of projects.
+Victor Bogado da Silva Lins <victor@bogado.net>
+:table-caption: 
+
+This helper inspects the current directory for clues on how to build it.
+If it finds the signature of a type of build it knows about it will automatically build it.
+
+== Building
+
+It uses cmake to build, just run:
+
+[bash]
+```
+$ cmake -B build # or anything you preffer.
+$ cmake --build build
+```
+
+== Usage
+
+The simple usage is to invoke 'vmak' and it will do everything it finds automatically.
+
+You can pass arguments for the different stages using the '---«stage»' syntax.
+
+.available stages
+[%autowidth, stripes=even]
+|===
+| stage | task | supported projects
+
+| ---prereq 
+| Pre-requisites installation
+a|
+* Conan (experimental)
+
+| ---conf
+| Configuration
+a|
+* cmake
+* cmake + presets (experimental)
+* meson
+
+| ---build
+| Build
+a|
+* cmake + presets (experimental)
+* ninja
+* make (Makefile)
+* gnumake (GNUMakefile)
+* cargo
+* jekyll
+
+| ---test
+| Tests
+a|
+* cmake + presets (experimental)
+
+| ---package
+| Packaging
+a|
+* cmake + presets (future improvement)
+
+|===
+
+
