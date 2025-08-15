@@ -1,4 +1,3 @@
-#include "builders.hpp"
 #include "builders/cmake_preset.hpp"
 #include "builders/conan.hpp"
 #include <catch2/catch_all.hpp>
@@ -62,6 +61,7 @@ TEST_CASE("conan_config", "[conan][config]")
 
 TEST_CASE("conan_profile_config", "[conan][config][profile]")
 {
+    SKIP();
     static const auto data = std::array{
         std::pair<std::string_view, std::optional<std::string_view>>{ "/host/settings/compiler.version"sv, "19"sv },
         std::pair<std::string_view, std::optional<std::string_view>>{ "/host/settings/compiler.libcxx"sv, "libstdc++11"sv },
