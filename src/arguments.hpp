@@ -1,9 +1,6 @@
 #ifndef INCLUDED_ARGUMENTS_HPP
 #define INCLUDED_ARGUMENTS_HPP
 
-#include "tasks.hpp"
-#include <util/option/concepts.hpp>
-
 #include <concepts>
 #include <optional>
 #include <ranges>
@@ -14,34 +11,39 @@
 
 namespace vb::maker {
 
-constexpr auto STAGE_SEPARATOR = "---"sv;
 
 template<typename ARGUMENTS>
 concept is_argument_list =
-    std::ranges::range<ARGUMENTS> && std::constructible_from<std::string_view, std::ranges::range_value_t<ARGUMENTS>>;
+    std::ranges::range<ARGUMENTS> && std::same_as<std::ranges::range_value_t<ARGUMENTS>, const char *>;
 
-template<typename ARGUMENTS>
-concept is_argument_view = 
-    is_argument_list<ARGUMENTS> && std::ranges::view<ARGUMENTS>;
+template<typename ARGUMENTS_DATA>
+concept is_argument_container = std::ranges::contiguous_range<ARGUMENTS_DATA> &&
+                           std::same_as<std::ranges::range_value_t<ARGUMENTS_DATA>, std::string_view>;
 
 using basic_argument_list = std::span<const char *>;
-using standard_argument_list = std::vector<std::string_view>;
+using argument_container = std::vector<std::string_view>;
+using argument_sub_container = std::span<std::string_view>;
 
-static_assert(is_argument_list<standard_argument_list>);
+static constexpr auto NO_SEPARATOR = '\0';
+
 static_assert(is_argument_list<basic_argument_list>);
-static_assert(is_argument_view<basic_argument_list>);
+static_assert(!is_argument_container<basic_argument_list>);
+static_assert(is_argument_container<argument_container>);
+static_assert(is_argument_container<argument_sub_container>);
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 constexpr basic_argument_list build_arguments(int argc, const char *argv[])
-{ 
+{
     return std::span{ argv, static_cast<size_t>(argc) };
 }
 
-constexpr auto to_argument_list(is_argument_view auto args)
+template<is_argument_list ARGUMENTS>
+constexpr auto to_arguments(const ARGUMENTS args)
 {
-    return std::ranges::to<std::vector>(args | std::views::transform([](const auto& arg) {
-               return std::string_view{ arg };
-           }));
+    ARGUMENTS all = args;
+    return std::ranges::to<std::vector>(all | std::views::transform([](const auto& arg) {
+                                            return std::string_view{ arg };
+                                        }));
 }
 
 constexpr auto command_from_args(is_argument_list auto args)
@@ -52,36 +54,29 @@ constexpr auto command_from_args(is_argument_list auto args)
     return std::string_view{ *args.begin() };
 }
 
-constexpr auto get_arguments(is_argument_list auto args, std::string_view what)
+constexpr auto
+filter_arguments(is_argument_list auto args, char separator, std::same_as<std::string_view> auto... whats)
+requires (sizeof...(whats) > 0)
 {
-    return args | std::views::filter([argument = what](const auto& arg) {
-               return arg.starts_with(argument);
-           }) |
-           std::views::transform([size = what.size()](const auto& arg) {
-               return std::string_view{ arg }.substr(0, size);
+    return args | std::views::filter([separator, whats...](auto arg) {
+               auto view = std::string_view{ arg };
+               if (separator == NO_SEPARATOR) {
+                    return ((view == whats) || ...);
+               }
+               return ((view.starts_with(whats) && (view.size() == whats.size() || view[whats.size()] == separator)) || ...);
            });
-}
-
-constexpr auto find_argument(is_argument_list auto args, char separator, std::same_as<std::string_view> auto... whats)
-    -> std::optional<std::string_view>
-{
-    auto list = to_argument_list(args);
-    for (auto what : { whats... }) {
-        auto it = std::ranges::find_if(list, [&](const auto& arg) {
-            return arg.starts_with(what) && (arg.size() == what.size() || arg[what.size()] == separator);
-        });
-        if (it != std::end(list)) {
-            return { what };
-        }
-    }
-
-    return std::nullopt;
 }
 
 constexpr auto find_argument(is_argument_list auto args, std::same_as<std::string_view> auto... whats)
     -> std::optional<std::string_view>
+requires (sizeof...(whats) > 0)
 {
-    return find_argument(args, '\0', whats...);
+    auto possible = filter_arguments(args, '\0', whats...);
+    if (possible.empty()) {
+        return std::nullopt;
+    }
+
+    return std::string_view{*possible.begin()};
 }
 
 constexpr std::size_t count_arguments(is_argument_list auto args)
@@ -98,32 +93,6 @@ constexpr auto drop_command(is_argument_list auto args)
 {
     return args | std::views::drop(1);
 }
-
-constexpr auto main_arguments(is_argument_list auto args)
-{
-    return args | std::views::take_while([](const auto& arg) {
-               return !std::string_view{ arg }.starts_with(STAGE_SEPARATOR);
-           });
-}
-
-static_assert(is_argument_list<std::remove_cvref_t<decltype(main_arguments(std::span<const char *>{}))>>);
-constexpr auto filter_arguments(is_argument_list auto args, Stage stage)
-{
-    auto boundary_check = [&](bool bound) {
-        return [&](const auto& arg) {
-            auto view = std::string_view{ arg };
-            if (!view.starts_with(STAGE_SEPARATOR)) {
-                return true;
-            }
-
-            auto rest = view.substr(STAGE_SEPARATOR.size()) != stage.option();
-            return bound ? rest : !rest;
-        };
-    };
-
-    return args | std::views::drop_while(boundary_check(true)) | std::views::drop(1) |
-           std::views::take_while(boundary_check(false));
-};
 
 }
 

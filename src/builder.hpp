@@ -23,7 +23,7 @@
 namespace vb::maker {
 
 template<typename RUNNER>
-concept is_runner = requires(const RUNNER runner, std::string_view target, basic_argument_list args) {
+concept is_runner = requires(const RUNNER runner, std::string_view target, argument_container args) {
     { runner.working_directory(target) } -> std::same_as<fs::path>;
     { runner.run(target, args) } -> std::same_as<execution_result>;
 };
@@ -76,11 +76,10 @@ struct builder_base
         return get_next_builder();
     }
 
-    constexpr auto run(std::string_view target, is_argument_view auto args) const
+    constexpr auto run(std::string_view target, is_argument_container auto args) const
     {
-        auto argument_list = to_argument_list(args);
-        std::ranges::copy(get_arguments(target), std::back_inserter(argument_list));
-        return root().execute(get_command(target), argument_list, get_environment(target));
+        std::ranges::copy(get_arguments(target), std::back_inserter(args));
+        return root().execute(get_command(target), args, get_environment(target));
     }
 
     constexpr auto working_directory(std::string_view target) const

@@ -64,7 +64,7 @@ int main(int argc, const char *argv[])
 
     auto args = maker::drop_command(all_arguments);
 
-    auto main_options = maker::main_arguments(args);
+    auto main_options = maker::Stage::main_arguments(args);
 
     if (auto found = maker::find_argument(main_options, "-h"sv, "--help"sv, "-?"sv); found.has_value()) {
         std::println("Usage: {} «Options» ---«stage» options for stages", maker::command_from_args(all_arguments));
@@ -105,7 +105,7 @@ int main(int argc, const char *argv[])
     while (builder) {
         std::println("Running stage {} → {}:", builder.stage(), builder);
 
-        auto result = builder.run(target, maker::filter_arguments(all_arguments, builder.stage()));
+        auto result = builder.run(target, maker::to_arguments(builder.stage().filter_arguments(all_arguments)));
 
         std::println("{}", result);
 

@@ -1,9 +1,12 @@
 #ifndef INCLUDED_PRESETS_HPP
 #define INCLUDED_PRESETS_HPP
 
+#include "arguments.hpp"
+
 #include <compare>
 #include <flat_map>
 #include <format>
+#include <functional>
 #include <limits>
 #include <ranges>
 #include <utility>
@@ -32,6 +35,8 @@ constexpr std::strong_ordering operator<=>(const task_type& type_a, const task_t
 
 struct Stage
 {
+    static constexpr auto SEPARATOR = "---"sv;
+
     constexpr std::strong_ordering operator<=>(const Stage&) const = default;
 
     struct Information
@@ -77,7 +82,54 @@ struct Stage
     }
 
 private:
+    static bool is_argument_boundary(std::string_view arg) {
+        return arg.starts_with(SEPARATOR);
+    }
 
+    bool is_this_argument_boundary(std::string_view arg) const {
+        return is_argument_boundary(arg) && arg.substr(SEPARATOR.size(), option().size()) == option();
+    }
+
+public:
+    template <is_argument_container ARGUMENTS>
+    constexpr auto filter_arguments(const ARGUMENTS& args) const
+    {
+        auto result = std::span{std::ranges::end(args), std::ranges::end(args)};
+
+        auto start = std::ranges::find_if(args, std::bind_front(&Stage::is_this_argument_boundary, this));
+        if (start != std::ranges::end(args))
+        {
+            start = std::next(start);
+            result = std::span{start, std::ranges::find_if(start, std::end(args), &Stage::is_argument_boundary)};
+        }
+        return result;
+    }
+
+    template <is_argument_list ARGUMENTS>
+    constexpr auto filter_arguments(ARGUMENTS args) const
+    {
+        return args | std::views::drop_while([stage = *this](auto arg) {
+            return !stage.is_this_argument_boundary(arg);
+        }) | std::views::drop(1) | std::views::take_while([](auto arg) {
+            return !is_argument_boundary(arg);
+        });
+    }
+
+    template <is_argument_container ARGUMENTS>
+    static constexpr auto main_arguments(const ARGUMENTS& args)
+    {
+        return std::span{std::begin(args), std::ranges::find_if(args, &Stage::is_argument_boundary)};
+    }
+
+    template <is_argument_list ARGUMENTS>
+    static constexpr auto main_arguments(ARGUMENTS args)
+    {
+        return args | std::views::take_while([](const auto& arg) {
+            return !is_argument_boundary(arg);
+        });
+    }
+
+private:
     task_type my_task_type = task_type::DONE;
 
     static constexpr auto get_info(task_type type) -> Information
