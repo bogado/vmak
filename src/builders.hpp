@@ -42,7 +42,7 @@ struct gnumake_spec
 {
     static constexpr auto stage      = task_type::build;
     static constexpr auto name       = "gnumake"sv;
-    static constexpr auto build_file = "GNUmakefile"sv;
+    static constexpr auto build_file = "GNUMakefile"sv;
     static constexpr auto command    = "gmake"sv;
 };
 
@@ -50,7 +50,7 @@ using gnumake = basic_builder<gnumake_spec>;
 
 struct meson_spec
 {
-    static constexpr auto stage      = task_type::build;
+    static constexpr auto stage      = task_type::configuration;
     static constexpr auto name       = "Meson"sv;
     static constexpr auto build_file = "meson.build"sv;
     static constexpr auto command    = "meson"sv;
