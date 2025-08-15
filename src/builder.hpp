@@ -78,7 +78,8 @@ struct builder_base
 
     constexpr auto run(std::string_view target, is_argument_container auto args) const
     {
-        std::ranges::copy(get_arguments(target), std::back_inserter(args));
+        auto extra_arguments = get_arguments(target);
+        std::ranges::copy(extra_arguments, std::back_inserter(args));
         return root().execute(get_command(target), args, get_environment(target));
     }
 
