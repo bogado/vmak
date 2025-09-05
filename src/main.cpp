@@ -5,6 +5,7 @@
 #include <util/environment.hpp>
 #include <util/options.hpp>
 
+#include <filesystem>
 #include <print>
 #include <ranges>
 #include <string_view>
@@ -56,7 +57,6 @@ constexpr auto default_environment = std::array{
     "XDG_VIDEOS_DIR"sv,
 };
 
-
 int main(int argc, const char *argv[])
 {
     using namespace vb;
@@ -84,12 +84,15 @@ int main(int argc, const char *argv[])
         env.import(var_name);
     }
 
-    if (!args.empty()) {
-        target = args.front();
+    if (!main_options.empty()) {
+        target = main_options.front();
     }
 
+    auto root = std::filesystem::current_path();
+    root = maker::builders::git_root_locator(root).value_or(root);
+
     auto builder = maker::builder{};
-    auto current = maker::work_dir{};
+    auto current = maker::work_dir{root};
     for (auto stage : maker::all_stages) {
         builder = maker::builders::select(current, stage, env);
         if (builder && builder.required()) {
@@ -105,7 +108,7 @@ int main(int argc, const char *argv[])
     while (builder) {
         std::println("Running stage {} → {}:", builder.stage(), builder);
 
-        auto arguments = maker::to_arguments(builder.stage().filter_arguments(all_arguments));
+        auto arguments = maker::argument_list(builder.stage().filter_arguments(all_arguments));
         auto result = builder.run(target, arguments);
 
         std::println("{}", result);

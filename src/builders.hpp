@@ -9,6 +9,8 @@
 #include "tasks.hpp"
 #include <util/environment.hpp>
 
+#include <filesystem>
+#include <optional>
 #include <string_view>
 
 namespace vb::maker::builders {
@@ -16,13 +18,25 @@ namespace vb::maker::builders {
 using namespace vb::literals;
 using namespace std::literals;
 
+bool is_git_root(std::filesystem::path path) {
+    auto git = path / ".git";
+    return std::filesystem::is_directory(git) || std::filesystem::is_regular_file(git);
+}
+
+optional_path git_root_locator(std::filesystem::path path) {
+    while (!is_git_root(path) && path.has_parent_path()) {
+        path = path.parent_path();
+    }
+    return path.has_parent_path() ? optional_path{path} : std::nullopt;
+}
+
 struct jekyll_spec
 {
     static constexpr auto stage      = task_type::build;
     static constexpr auto name       = "Jekyll"sv;
     static constexpr auto build_file = "_config.yml"sv;
-    static constexpr auto command    = "jekyll"sv;
-    static constexpr auto arguments  = std::array{ "build"sv };
+    static constexpr auto command    = "bundle"sv;
+    static constexpr auto arguments  = std::array{ "exec"sv, "jekyll"sv, "build"sv };
     static constexpr auto import_env = std::array{ "" };
 };
 
@@ -54,6 +68,7 @@ struct meson_spec
     static constexpr auto name       = "Meson"sv;
     static constexpr auto build_file = "meson.build"sv;
     static constexpr auto command    = "meson"sv;
+    static constexpr auto arguments  = std::array{ "setup"sv };
     static constexpr auto next_step  = ninja::create;
 };
 

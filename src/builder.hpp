@@ -22,6 +22,13 @@
 
 namespace vb::maker {
 
+using optional_path = std::optional<std::filesystem::path>;
+
+template<typename ROOT_LOCATOR>
+concept is_root_locator =
+    std::convertible_to<std::invoke_result_t<ROOT_LOCATOR, std::filesystem::path>, optional_path> &&
+    std::invocable<ROOT_LOCATOR, std::filesystem::path>;
+
 template<typename RUNNER>
 concept is_runner = requires(const RUNNER runner, std::string_view target, argument_container args) {
     { runner.working_directory(target) } -> std::same_as<fs::path>;
@@ -146,6 +153,11 @@ concept specification_has_import =
 template<typename SPEC_T>
 concept specification_has_arguments = is_builder_spec<SPEC_T> && one_or_many_strings<decltype(SPEC_T::arguments)>;
 
+template<typename SPEC_T>
+concept specification_has_root_locator = is_builder_spec<SPEC_T> && requires(std::filesystem::path path) {
+    { SPEC_T::find_root(path) } -> std::same_as<std::optional<std::filesystem::path>>;
+};
+
 template<is_builder_spec SPECIFICATION, typename CLASS = void>
 struct basic_builder : builder_base
 {
@@ -163,6 +175,15 @@ public:
 
     static bool is_root(work_dir root)
     {
+        if constexpr (specification_has_root_locator<specification_type>) {
+            auto new_root = specification_type::find_root(root.path());
+            if (new_root.has_value()) {
+                root = work_dir{ new_root };
+            } else {
+                return false;
+            }
+        }
+
         if constexpr (is_many_of<decltype(specification_type::build_file), std::string_view>) {
             return std::ranges::any_of(specification_type::build_file, [&](const auto& filename) {
                 return root.has_file(filename);
@@ -228,7 +249,7 @@ protected:
         }
 
         if constexpr (sizeof...(args) > 0) {
-            auto args_arr = std::array{ std::string_view{args}... };
+            auto args_arr = std::array{ std::string_view{ args }... };
             std::ranges::copy(transform_args(args_arr), std::back_inserter(result));
         }
 
@@ -240,14 +261,15 @@ private:
     static auto transform_args(const std::ranges::viewable_range auto& args)
     {
         return args | std::views::transform([](auto view) -> std::string {
-            if (view.empty()) {
-                return std::string{};
-            } else {
-                return std::string{ view };
-            }
-        }) | std::views::filter([](const auto& v) {
-            return !v.empty();
-        });
+                   if (view.empty()) {
+                       return std::string{};
+                   } else {
+                       return std::string{ view };
+                   }
+               }) |
+               std::views::filter([](const auto& v) {
+                   return !v.empty();
+               });
     }
 
     std::string get_name() const override
@@ -296,7 +318,7 @@ private:
 
     Stage get_stage() const override
     {
-        return Stage{specification_type::stage};
+        return Stage{ specification_type::stage };
     }
 
 protected:
@@ -354,7 +376,7 @@ private:
     Stage get_stage() const override
     {
         if (!*this) {
-            return Stage{task_type::DONE};
+            return Stage{ task_type::DONE };
         }
         return impl->stage();
     }

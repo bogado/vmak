@@ -39,13 +39,13 @@ struct cmake : basic_builder<cmake_spec, cmake>
 
     cmake(work_dir wd, env::environment::optional env_)
         : basic_builder{ wd, env_ }
-        , build_dir{ get_build(env_) }
+        , my_build_dir{ get_build(env_) }
     {
         environment().set("CMAKE_EXPORT_COMPILE_COMMANDS") = "true";
         environment().set("CMAKE_GENERATOR")               = "Ninja Multi-Config";
     }
 
-    std::string build_dir;
+    std::string my_build_dir;
 
 private:
 
@@ -64,8 +64,8 @@ private:
     {
         auto new_env = environment();
         new_env.import("PATH");
-        new_env.set("BUILD_DIR") = build_dir;
-        return ninja::create(work_dir{ root().path() / build_dir }, new_env);
+        new_env.set("BUILD_DIR") = my_build_dir;
+        return ninja::create(work_dir{ root().path() / my_build_dir }, new_env);
     }
 };
 
