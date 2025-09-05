@@ -37,13 +37,23 @@ struct work_dir
     {
     }
 
-    fs::path path() const { return root; }
+    fs::path path() const
+    {
+        return root;
+    }
 
-    bool has_file(std::string_view file) const { return fs::is_regular_file(root / file); }
+    bool has_file(std::string_view file) const
+    {
+        return fs::is_regular_file(root / file);
+    }
 
-    bool has_folder(std::string_view file) const { return fs::is_directory(root / file); }
+    bool has_folder(std::string_view file) const
+    {
+        return fs::is_directory(root / file);
+    }
 
-    fs::path folder(std::string_view sub_folder) const {
+    fs::path folder(std::string_view sub_folder) const
+    {
         auto result = (root / sub_folder);
         if (!has_folder(sub_folder)) {
             std::error_code code;
