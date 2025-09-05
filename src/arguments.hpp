@@ -38,7 +38,7 @@ constexpr basic_argument_list build_arguments(int argc, const char *argv[])
 }
 
 template<is_argument_list ARGUMENTS>
-constexpr auto to_arguments(const ARGUMENTS args)
+constexpr auto argument_list(const ARGUMENTS args)
 {
     ARGUMENTS all = args;
     return std::ranges::to<std::vector>(all | std::views::transform([](const auto& arg) {
