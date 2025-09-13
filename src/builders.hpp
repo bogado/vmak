@@ -87,6 +87,17 @@ struct cargo_spec
 
 using cargo = basic_builder<cargo_spec>;
 
+struct gradle_spec
+{
+    static constexpr auto stage      = task_type::build;
+    static constexpr auto name       = "gradle"sv;
+    static constexpr auto build_file = std::array{ "gradlew"sv };
+    static constexpr auto command    = "./gradlew"sv;
+    static constexpr auto arguments  = std::array{ "assemble"sv };
+};
+
+using gradle = basic_builder<gradle_spec>;
+
 struct factory
 {
     builder_base::factory my_builder;
@@ -103,7 +114,7 @@ struct factory
 inline constexpr auto all_factories =
     std::array{ factory::for_class<make>(),  factory::for_class<gnumake>(), factory::for_class<cmake_preset>(),
                 factory::for_class<cmake>(), factory::for_class<ninja>(),   factory::for_class<jekyll>(),
-                factory::for_class<cargo>(), factory::for_class<meson>() };
+                factory::for_class<cargo>(), factory::for_class<meson>(),   factory::for_class<gradle>() };
 
 builder_base::ptr select(work_dir root, Stage stage, env::environment::optional env = {})
 {
