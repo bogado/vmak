@@ -15,6 +15,8 @@ using namespace vb;
 using namespace std::literals;
 
 constexpr auto default_environment = std::array{
+    "CC"sv,
+    "CXX"sv,
     "DISPLAY"sv,
     "GID"sv,
     "HOME"sv,
