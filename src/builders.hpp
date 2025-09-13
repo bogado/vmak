@@ -18,17 +18,18 @@ namespace vb::maker::builders {
 using namespace vb::literals;
 using namespace std::literals;
 
-bool is_git_root(std::filesystem::path path) {
+bool is_git_root(std::filesystem::path path)
+{
     auto git = path / ".git";
     return std::filesystem::is_directory(git) || std::filesystem::is_regular_file(git);
 }
 
 optional_path git_root_locator(std::filesystem::path path)
 {
-    while (!is_git_root(path) && path.has_parent_path()) {
+    while (!is_git_root(path) && (path.has_relative_path())) {
         path = path.parent_path();
     }
-    return path.has_parent_path() ? optional_path{ path } : std::nullopt;
+    return (path.has_relative_path()) ? optional_path{ path } : std::nullopt;
 }
 
 struct jekyll_spec
