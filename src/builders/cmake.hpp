@@ -4,8 +4,10 @@
 #include "../builder.hpp"
 #include "ninja.hpp"
 #include "tasks.hpp"
+#include "work_directory.hpp"
 #include <util/environment.hpp>
 
+#include <filesystem>
 #include <string_view>
 
 namespace vb::maker::builders {
@@ -55,9 +57,11 @@ private:
 
     bool get_required() const override
     {
-        return std::ranges::any_of(build_dirs, [&](const auto& folder_name) {
-            return root().has_folder(folder_name);
-        });
+        auto build_dir = root().path() / std::filesystem::path{get_build(environment())};
+        if (!std::filesystem::is_directory(build_dir)) {
+            std::filesystem::create_directory(build_dir);
+        }
+        return true;
     }
 
     builder_base::ptr get_next_builder() const override
