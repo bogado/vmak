@@ -23,11 +23,12 @@ bool is_git_root(std::filesystem::path path) {
     return std::filesystem::is_directory(git) || std::filesystem::is_regular_file(git);
 }
 
-optional_path git_root_locator(std::filesystem::path path) {
+optional_path git_root_locator(std::filesystem::path path)
+{
     while (!is_git_root(path) && path.has_parent_path()) {
         path = path.parent_path();
     }
-    return path.has_parent_path() ? optional_path{path} : std::nullopt;
+    return path.has_parent_path() ? optional_path{ path } : std::nullopt;
 }
 
 struct jekyll_spec
