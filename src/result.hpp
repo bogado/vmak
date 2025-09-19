@@ -5,6 +5,7 @@
 
 #include <format>
 #include <iterator>
+#include <ranges>
 #include <vector>
 
 namespace vb {
@@ -55,7 +56,7 @@ public:
         , status{ FAILURE } {};
 
     explicit execution_result(execution& exec)
-        : error_output{ std::ranges::to<std::vector>(exec.lines<std_io::ERR>()) }
+        : error_output{ std::ranges::to<std::vector>(exec.lines<std_io::ERR>())}
         , exit_code{ exec.wait() }
         , status{ exit_code != 0         ? FAILURE
                   : error_output.empty() ? SUCCESS

@@ -108,14 +108,11 @@ int main(int argc, const char *argv[])
     }
 
     while (builder) {
-        auto result = true;
         if (builder.required()) {
             std::println("Running stage {} → {}:", builder.stage(), builder);
 
             auto arguments = maker::argument_list(builder.stage().filter_arguments(all_arguments));
-            result = builder.run(target, arguments);
-
-            std::println("{}", result);
+            auto result = builder.run(target, arguments);
 
             if (!result) {
                 std::println("🚫 Builder {} failled at stage {} \n{}", builder.name(), builder.stage(), result);
