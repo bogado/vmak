@@ -37,16 +37,28 @@ struct ninja : basic_builder<ninja_spec, ninja>
     }
 
     ninja(work_dir wd, env::environment::optional env_)
-        : basic_builder{ wd, env_.has_value() ? env_ : env::environment{} }
+        : basic_builder{ wd, env_.value_or(env::environment{}) }
     {
         environment().import(BUILD_FILE_VAR);
     }
 
+
+    ninja(work_dir wd, env::environment::optional env_,  std::filesystem::path work_dir) : 
+        basic_builder{wd, env_.value_or(env::environment())},
+        my_working_dir{work_dir}
+    {}
+
 private:
+    std::optional<std::filesystem::path> my_working_dir{};
+
     arguments_type get_arguments(std::string_view target) const override
     {
         auto args = parent::arguments_builder(target);
-        if (!build_file().empty() && fs::exists(work_dir().path() / build_file())) {
+        auto dir = my_working_dir.value_or(work_dir().path());
+        if (my_working_dir.has_value() && build_file().empty()) {
+            args.push_back("-C"s);
+            args.push_back(dir);
+        } else if (!build_file().empty() && fs::exists(work_dir().path() / build_file())) {
             args.push_back("-f"s);
             args.push_back(work_dir().path() / build_file());
         }

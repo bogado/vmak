@@ -97,7 +97,7 @@ int main(int argc, const char *argv[])
     auto current = maker::work_dir{root};
     for (auto stage : maker::all_stages) {
         builder = maker::builders::select(current, stage, env);
-        if (builder && builder.required()) {
+        if (builder) {
             break;
         }
     }
@@ -108,16 +108,21 @@ int main(int argc, const char *argv[])
     }
 
     while (builder) {
-        std::println("Running stage {} → {}:", builder.stage(), builder);
+        auto result = true;
+        if (builder.required()) {
+            std::println("Running stage {} → {}:", builder.stage(), builder);
 
-        auto arguments = maker::argument_list(builder.stage().filter_arguments(all_arguments));
-        auto result = builder.run(target, arguments);
+            auto arguments = maker::argument_list(builder.stage().filter_arguments(all_arguments));
+            result = builder.run(target, arguments);
 
-        std::println("{}", result);
+            std::println("{}", result);
 
-        if (!result) {
-            std::println("🚫 Builder {} failled at stage {} \n{}", builder.name(), builder.stage(), result);
-            return 1;
+            if (!result) {
+                std::println("🚫 Builder {} failled at stage {} \n{}", builder.name(), builder.stage(), result);
+                return 1;
+            }
+        } else {
+            std::println("Skip stage {} → {}", builder.stage(), builder);
         }
 
         builder = builder.next_builder();

@@ -6,6 +6,7 @@
 #include "builders/cmake_preset.hpp"
 #include "builders/conan.hpp"
 #include "builders/ninja.hpp"
+#include "builders/meson.hpp"
 #include "tasks.hpp"
 #include <util/environment.hpp>
 
@@ -64,17 +65,6 @@ struct gnumake_spec
 
 using gnumake = basic_builder<gnumake_spec>;
 
-struct meson_spec
-{
-    static constexpr auto stage      = task_type::configuration;
-    static constexpr auto name       = "Meson"sv;
-    static constexpr auto build_file = "meson.build"sv;
-    static constexpr auto command    = "meson"sv;
-    static constexpr auto arguments  = std::array{ "setup"sv };
-    static constexpr auto next_step  = ninja::create;
-};
-
-using meson = basic_builder<meson_spec>;
 
 struct cargo_spec
 {

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <concepts>
 #include <cstddef>
+#include <filesystem>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -50,6 +51,8 @@ struct builder_base
     builder_base& operator=(builder_base&&)      = default;
 
     friend struct builder;
+
+    static constexpr auto COMPILE_COMMANDS = "compile_commands.json"sv;
 
     using ptr            = std::unique_ptr<builder_base>;
     using factory        = ptr (*)(work_dir, env::environment::optional);
@@ -158,6 +161,14 @@ concept specification_has_root_locator = is_builder_spec<SPEC_T> && requires(std
     { SPEC_T::find_root(path) } -> std::same_as<std::optional<std::filesystem::path>>;
 };
 
+template<typename SPEC_T>
+concept specification_need_build_dir = is_builder_spec<SPEC_T> && SPEC_T::build_dir;
+
+template<typename SPEC_T>
+concept specification_has_creates = is_builder_spec<SPEC_T> && requires(std::filesystem::path path) {
+    { SPEC_T::creates } -> std::convertible_to<std::string_view>;
+};
+
 template<is_builder_spec SPECIFICATION, typename CLASS = void>
 struct basic_builder : builder_base
 {
@@ -227,6 +238,26 @@ public:
 
 protected:
 
+    static constexpr auto needs_build_dir = specification_need_build_dir<specification_type>;
+    static std::string    get_build_dirname(env::environment::optional env)
+        requires(needs_build_dir)
+    {
+        auto build_dir = env.has_value() ? env->get("BUILD_DIR").value_or(env::variable{ "BUILD_DIR" }).value_str()
+                                         : ""s;
+        build_dir      = build_dir.empty() ? "build"s : build_dir;
+        return build_dir;
+    }
+
+    std::filesystem::path get_build_dir() const
+        requires(needs_build_dir)
+    {
+        auto build_dir = root().path() / std::filesystem::path{ get_build_dirname(environment()) };
+        if (!std::filesystem::is_directory(build_dir)) {
+            std::filesystem::create_directory(build_dir);
+        }
+        return build_dir;
+    }
+
     arguments_type arguments_builder(std::convertible_to<std::string_view> auto... args) const
     {
         arguments_type result;
@@ -289,7 +320,19 @@ private:
 
     bool get_required() const override
     {
-        return true;
+        auto build_dir = [&]() {
+            if constexpr (needs_build_dir) {
+                return get_build_dir();
+            } else {
+                return root().path();
+            }
+        }();
+
+        if constexpr(specification_has_creates<specification_type>) {
+            return !std::filesystem::is_regular_file(build_dir / specification_type::creates);
+        } else {
+            return true;
+        }
     }
 
     std::string_view get_command(std::string_view target [[maybe_unused]]) const override
@@ -347,6 +390,7 @@ private:
     builder_base::ptr impl;
 
 public:
+
 
     using optional = std::optional<builder>;
 
