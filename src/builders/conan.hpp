@@ -35,7 +35,7 @@ struct conan_spec
 {
     static constexpr auto stage      = task_type::pre_requisites;
     static constexpr auto name       = "conan"sv;
-    static constexpr auto build_file = "conanfile.txt"sv;
+    static constexpr auto build_file = std::array{"conanfile.txt"sv, "conanfile.py"sv};
     static constexpr auto command    = "conan"sv;
 };
 

@@ -165,7 +165,13 @@ private:
 
     arguments_type get_arguments(std::string_view target) const override
     {
-        auto result = arguments(target);
+        auto preset = target;
+
+        if (preset.empty()) {
+            preset = my_presets.view_for(my_task).front();
+        }
+
+        auto result = arguments_type{};
         auto append = [&](auto args) {
             std::ranges::copy(
                 args | std::views::transform([](auto view) { return std::string{ view }; }),
@@ -173,13 +179,13 @@ private:
         };
         switch (my_task) {
         case task_type::configuration:
-            append(std::array{ "--preset"sv, target });
+            append(std::array{ "--preset"sv, preset });
             break;
         case task_type::build:
-            append(std::array{ "--build"sv, "--preset"sv, target });
+            append(std::array{ "--build"sv, "--preset"sv, preset });
             break;
         case task_type::test:
-            append(std::array{ "--output-on-failure"sv, "--preset"sv, target });
+            append(std::array{ "--output-on-failure"sv, "--preset"sv, preset });
             break;
         default:
             break;
@@ -208,6 +214,7 @@ private:
         default:
             break;
         }
+
         if (next_task == task_type::DONE) {
             return {};
         }
