@@ -21,7 +21,7 @@ struct cmake_spec
     static constexpr auto import_env =
         std::array{ "CMAKE_BUILD_PARALLEL_LEVEL"sv, "CMAKE_BUILD_TYPE"sv, "CMAKE_MODULE_PATH"sv };
     static constexpr auto build_dir = true;
-    static constexpr auto creates   = "CMakeCache.txt"sv;
+    static constexpr auto creates   = "build.ninja"sv;
 };
 
 struct cmake : basic_builder<cmake_spec, cmake>
