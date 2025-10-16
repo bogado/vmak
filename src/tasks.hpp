@@ -110,14 +110,12 @@ public:
         });
     }
 
-    template <is_argument_container ARGUMENTS>
-    static constexpr auto main_arguments(const ARGUMENTS& args)
+    static constexpr auto main_arguments(const is_argument_container auto& args)
     {
         return std::span{std::begin(args), std::ranges::find_if(args, &Stage::is_argument_boundary)};
     }
 
-    template <is_argument_list ARGUMENTS>
-    static constexpr auto main_arguments(ARGUMENTS args)
+    static constexpr auto main_arguments(is_argument_list auto args)
     {
         return args | std::views::take_while([](const auto& arg) {
             return !is_argument_boundary(arg);
