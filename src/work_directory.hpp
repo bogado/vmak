@@ -75,7 +75,13 @@ struct work_dir
         std::println(" ]\n");
 
         execution executer{ io_set::ERR };
-        executer.execute(command, args, env, root);
+        executer.execute(
+            command,
+            std::ranges::to<std::vector>(args | std::views::transform([](auto view) {
+                                             return std::string(view);
+                                         })),
+            env,
+            root);
 
         return execution_result{ executer };
     }
