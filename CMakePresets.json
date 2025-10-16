@@ -55,14 +55,16 @@
     ],
     "testPresets": [
         {
-            "name": "test gcc",
+            "name": "test-gcc",
             "configurePreset": "gcc",
+            "configuration": "Debug",
             "output": {"outputOnFailure": true},
             "execution": {"noTestsAction": "error", "stopOnFailure": true}
         },
         {
-            "name": "test clang",
+            "name": "test-clang",
             "configurePreset": "clang",
+            "configuration": "Debug",
             "output": {"outputOnFailure": true},
             "execution": {"noTestsAction": "error", "stopOnFailure": true}
         }
