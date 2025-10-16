@@ -4,12 +4,12 @@
 #include "arguments.hpp"
 
 #include <compare>
-#include <flat_map>
 #include <format>
 #include <functional>
 #include <limits>
 #include <ranges>
 #include <utility>
+#include <compare>
 
 namespace vb::maker {
 
@@ -27,11 +27,6 @@ enum class task_type : std::size_t
     COUNT   = DONE,
     DYNAMIC = std::numeric_limits<std::size_t>::max()
 };
-
-constexpr std::strong_ordering operator<=>(const task_type& type_a, const task_type& type_b)
-{
-    return std::to_underlying(type_a) <=> std::to_underlying(type_b);
-}
 
 struct Stage
 {
