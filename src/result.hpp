@@ -6,6 +6,7 @@
 #include <format>
 #include <iterator>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 namespace vb {
@@ -30,7 +31,7 @@ struct execution_result
 
 public:
 
-    constexpr operator bool() const
+    constexpr explicit operator bool() const
     {
         switch (status) {
         case NOT_NEEDED:
