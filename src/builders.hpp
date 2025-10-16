@@ -94,10 +94,23 @@ struct factory
     task_type             my_type;
     std::string_view      my_name;
 
-    template<is_builder builder>
+    bool (*my_stage_check)(task_type);
+
+    template<is_builder BUILDER_T>
+    static constexpr auto accepts_type(task_type stage)
+    {
+        using SPEC_T = BUILDER_T::specification_type;
+        if constexpr (SPEC_T::stage == task_type::DYNAMIC) {
+            return std::ranges::find(SPEC_T::stages, stage) != std::end(SPEC_T::stages);
+        } else {
+            return SPEC_T::stage == stage;
+        }
+    }
+
+    template<is_builder BUILDER_T>
     static constexpr factory for_class()
     {
-        return factory{ builder::create, builder::stage, builder::builder_name };
+        return factory{ BUILDER_T::create, BUILDER_T::stage, BUILDER_T::builder_name, &accepts_type<BUILDER_T> };
     }
 };
 
@@ -109,9 +122,9 @@ inline constexpr auto all_factories =
 
 builder_base::ptr select(work_dir root, Stage stage, env::environment::optional env = {})
 {
-    for (const auto& factory : all_factories | std::views::filter([&](auto fac) {
-                                   return fac.my_type == stage.type();
-                               })) {
+    for (const auto& factory : all_factories | std::views::filter([&](const auto& factory) {
+        return factory.my_stage_check(stage.type());
+    })) {
         if (auto ptr = factory.my_builder(root, env); ptr != nullptr) {
             return ptr;
         }
