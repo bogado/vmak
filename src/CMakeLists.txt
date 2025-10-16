@@ -1,13 +1,13 @@
-add_library(vmak_lib INTERFACE builder.hpp builders.hpp project.hpp result.hpp work_directory.hpp builders/cmake.hpp builders/cmake_preset.hpp builders/conan.hpp builders/ninja.hpp)
+add_library(vmake_lib INTERFACE builder.hpp builders.hpp project.hpp result.hpp work_directory.hpp builders/cmake.hpp builders/cmake_preset.hpp builders/conan.hpp builders/ninja.hpp)
 
-target_link_libraries(vmak_lib INTERFACE basic_prj::utils nlohmann_json::nlohmann_json)
-target_include_directories(vmak_lib INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(vmake_lib INTERFACE basic_prj::utils nlohmann_json::nlohmann_json)
+target_include_directories(vmake_lib INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
-add_executable(vmak main.cpp)
-target_link_libraries(vmak PRIVATE vmak_lib)
+add_executable(vmk main.cpp)
+target_link_libraries(vmk PRIVATE vmake_lib)
 
-setup_target(vmak PUBLIC)
-install(TARGETS vmak DESTINATION ${CMAKE_INSTALL_BINDIR})
+setup_target(vmk PUBLIC)
+install(TARGETS vmk DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 enable_testing()
 
@@ -22,7 +22,7 @@ if (Catch2_FOUND)
     )
 
     setup_target(vmak_test PRIVATE)
-    target_link_libraries(vmak_test PRIVATE vmak_lib Catch2::Catch2WithMain)
+    target_link_libraries(vmak_test PRIVATE vmake_lib Catch2::Catch2WithMain)
 
     add_test(NAME vmak COMMAND vmak_test)
 endif()

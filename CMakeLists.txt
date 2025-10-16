@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(VMak LANGUAGES CXX VERSION 0.01)
+project(VMake LANGUAGES CXX VERSION 0.1)
 
 find_package(basic_prj 1.0 REQUIRED GLOBAL)
 
