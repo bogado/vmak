@@ -73,8 +73,14 @@ int main(int argc, const char *argv[])
         for(auto stage : vb::maker::all_stages) {
             std::println("\t---{} : stage {} - {}",stage.option(), stage.name(), stage.information()); 
         }
+        std::println("\t--list-env : {}", "Lists all the environment variables that are exported. Some builders may export additional variables.");
         std::println("\t--help, -h, -? : {}", "This message");
 
+        return 0;
+    }
+
+    if (auto found = maker::find_argument(main_options, "--list-env"sv); found.has_value()) {
+        std::println("Environment variables that are exported by default: {}", default_environment);
         return 0;
     }
 
@@ -103,7 +109,7 @@ int main(int argc, const char *argv[])
     }
 
     if (!builder) {
-        std::println(std::cerr, "Could not find an applicable builded for `{}`", current.path().string());
+        std::println(std::cerr, "Could not find an applicable builder for `{}`", current.path().string());
         return 1;
     }
 
