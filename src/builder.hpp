@@ -90,7 +90,7 @@ struct builder_base
     {
         auto extra_arguments = get_arguments(target);
         std::ranges::copy(extra_arguments, std::back_inserter(args));
-        return root().execute(get_command(target), args, get_environment(target));
+        return execute_step(get_command(target), extra_arguments);
     }
 
     constexpr auto working_directory(std::string_view target) const
@@ -99,17 +99,17 @@ struct builder_base
     }
 
 private:
-
-    virtual std::string get_name() const     = 0;
-    virtual work_dir    get_root() const     = 0;
-    virtual bool        get_required() const = 0;
-    virtual Stage       get_stage() const    = 0;
-    virtual ptr         get_next_builder() const
+    virtual execution_result execute_step(std::string command, arguments_type arguments) const = 0;
+    virtual std::string      get_name() const                                                  = 0;
+    virtual work_dir         get_root() const                                                  = 0;
+    virtual bool             get_required() const                                              = 0;
+    virtual Stage            get_stage() const                                                 = 0;
+    virtual ptr              get_next_builder() const
     {
         return nullptr;
     }
 
-    virtual std::string_view get_command(std::string_view target [[maybe_unused]]) const = 0;
+    virtual std::string get_command(std::string_view target [[maybe_unused]]) const = 0;
 
     virtual arguments_type get_arguments(std::string_view target [[maybe_unused]]) const = 0;
 
@@ -133,13 +133,6 @@ concept one_or_many_strings = is_string<std::remove_cvref_t<TYPE>> || (std::rang
 template<typename TYPE, typename VALUE_T>
 concept is_many_of = std::ranges::range<TYPE> && std::same_as<std::ranges::range_value_t<TYPE>, VALUE_T>;
 
-template<typename BUILDER>
-concept is_builder = is_runner<BUILDER> && std::derived_from<BUILDER, builder_base> &&
-                     std::same_as<decltype(BUILDER::builder_name), const std::string_view> &&
-                     std::convertible_to<decltype(BUILDER::stage), task_type> && requires(const work_dir path) {
-                         { BUILDER::is_root(path) } -> std::convertible_to<bool>;
-                     };
-
 template<typename SPEC_T>
 concept is_builder_spec = requires {
     { SPEC_T::stage } -> std::convertible_to<task_type>;
@@ -147,6 +140,14 @@ concept is_builder_spec = requires {
     { SPEC_T::command } -> is_string;
     { SPEC_T::build_file } -> one_or_many_strings;
 };
+
+template<typename BUILDER>
+concept is_builder = is_runner<BUILDER> && std::derived_from<BUILDER, builder_base> &&
+                     std::same_as<decltype(BUILDER::builder_name), const std::string_view> &&
+                     is_builder_spec<typename BUILDER::specification_type> &&
+                     std::convertible_to<decltype(BUILDER::stage), task_type> && requires(const work_dir path) {
+                         { BUILDER::is_root(path) } -> std::convertible_to<bool>;
+                     };
 
 template<typename SPEC_T>
 concept specification_has_import =
@@ -287,7 +288,7 @@ protected:
         return result;
     }
 
-private:
+protected:
 
     static auto transform_args(const std::ranges::viewable_range auto& args)
     {
@@ -301,6 +302,11 @@ private:
                std::views::filter([](const auto& v) {
                    return !v.empty();
                });
+    }
+
+    execution_result execute_step(std::string target, arguments_type arguments) const override
+    {
+        return root().execute(get_command(target), arguments, get_environment(target));
     }
 
     std::string get_name() const override
@@ -328,16 +334,16 @@ private:
             }
         }();
 
-        if constexpr(specification_has_creates<specification_type>) {
+        if constexpr (specification_has_creates<specification_type>) {
             return !std::filesystem::is_regular_file(build_dir / specification_type::creates);
         } else {
             return true;
         }
     }
 
-    std::string_view get_command(std::string_view target [[maybe_unused]]) const override
+    std::string get_command(std::string_view target [[maybe_unused]]) const override
     {
-        return specification_type::command;
+        return std::string{specification_type::command};
     }
 
     arguments_type get_arguments(std::string_view target) const override
@@ -391,7 +397,6 @@ private:
 
 public:
 
-
     using optional = std::optional<builder>;
 
     constexpr builder() = default;
@@ -407,6 +412,14 @@ public:
     }
 
 private:
+
+    execution_result execute_step(std::string command, arguments_type args) const override
+    {
+        if (!*this) {
+            return execution_result("«NO BUILDER»");
+        }
+        return impl->execute_step(command, args);
+    }
 
     std::string get_name() const override
     {
@@ -462,7 +475,7 @@ private:
         return impl->get_working_directory(target);
     }
 
-    std::string_view get_command(std::string_view target) const override
+    std::string get_command(std::string_view target) const override
     {
         return impl->get_command(target);
     }

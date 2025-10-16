@@ -194,12 +194,12 @@ private:
         return result;
     }
 
-    std::string_view get_command(std::string_view) const override
+    std::string get_command(std::string_view) const override
     {
         if (my_task == task_type::test) {
-            return "ctest"sv;
+            return "ctest"s;
         } else {
-            return cmake_preset_spec::command;
+            return std::string{cmake_preset_spec::command};
         }
     }
 

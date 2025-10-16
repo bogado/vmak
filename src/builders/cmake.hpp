@@ -35,7 +35,28 @@ struct cmake : basic_builder<cmake_spec, cmake>
         environment().set("CMAKE_GENERATOR")               = "Ninja Multi-Config";
     }
 
+protected:
+    /// Makes sure that a failure cleans up any created build file.
+    ///
+    /// Some types of failure will break subsequent builds.
+    ///
+    static void failure_clean_up(std::filesystem::path build_dir) {
+        auto build_file = build_dir / "build.ninja";
+        if (std::filesystem::is_regular_file(build_file)) {
+            std::filesystem::remove(build_file);
+        }
+    }
+
 private:
+    execution_result execute_step(std::string target, arguments_type arguments) const override
+    {
+        auto result = basic_builder::execute_step(target, arguments);
+
+        if (!result) {
+            failure_clean_up(get_build_dir());
+        }
+        return result;
+    }
 
     arguments_type get_arguments(std::string_view) const override  {
         return arguments_builder("-B", get_build_dirname(environment()));
