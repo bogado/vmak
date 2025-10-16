@@ -1,0 +1,71 @@
+{
+    "version": 10,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "gcc",
+            "displayName": "Default Configuration uses GCC",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/gcc",
+            "environment": {
+                "CC": "gcc",
+                "CXX": "g++"
+            }
+        },
+        {
+            "name": "clang",
+            "inherits": "gcc",
+            "displayName": "Configuration using clang",
+            "binaryDir": "${sourceDir}/build/clang",
+            "environment": {
+                "CC": "clang",
+                "CXX": "clang++"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "gcc-debug",
+            "displayName": "Builds debug version on GCC",
+            "configurePreset": "gcc",
+            "configuration": "Debug"
+        },
+        {
+            "name": "clang-debug",
+            "displayName": "Builds debug version on GCC",
+            "configurePreset": "clang",
+            "configuration": "Debug"
+        },
+        {
+            "name": "gcc-release",
+            "displayName": "Builds release version on GCC",
+            "configurePreset": "gcc",
+            "configuration": "Release"
+        },
+        {
+            "name": "clang-release",
+            "displayName": "Builds release version on clang",
+            "configurePreset": "clang",
+            "configuration": "Release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "test gcc",
+            "configurePreset": "gcc",
+            "output": {"outputOnFailure": true},
+            "execution": {"noTestsAction": "error", "stopOnFailure": true}
+        },
+        {
+            "name": "test clang",
+            "configurePreset": "clang",
+            "output": {"outputOnFailure": true},
+            "execution": {"noTestsAction": "error", "stopOnFailure": true}
+        }
+    ]
+}
+
