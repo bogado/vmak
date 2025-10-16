@@ -12,13 +12,14 @@
 namespace vb::maker {
 
 
-template<typename ARGUMENTS>
-concept is_argument_list =
-    std::ranges::range<ARGUMENTS> && std::same_as<std::ranges::range_value_t<ARGUMENTS>, const char *>;
-
 template<typename ARGUMENTS_DATA>
 concept is_argument_container = std::ranges::contiguous_range<ARGUMENTS_DATA> &&
                            std::same_as<std::ranges::range_value_t<ARGUMENTS_DATA>, std::string_view>;
+
+template<typename ARGUMENTS>
+concept is_argument_list =
+    std::ranges::range<ARGUMENTS> && std::same_as<std::ranges::range_value_t<ARGUMENTS>, const char *> && !is_argument_container<ARGUMENTS>;
+
 
 using basic_argument_list = std::span<const char *>;
 using argument_container = std::vector<std::string_view>;
