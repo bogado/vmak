@@ -27,6 +27,7 @@ namespace vb::maker::builders {
 struct cmake_preset_spec
 {
     static constexpr auto stage      = task_type::DYNAMIC;
+    static constexpr auto stages     = std::array{ task_type::configuration, task_type::build, task_type::test };
     static constexpr auto name       = "cmake - preset"sv;
     static constexpr auto build_file = std::array{ "CMakeUserPresets.json"sv, "CMakePresets.json"sv };
     static constexpr auto command    = "cmake"sv;
@@ -48,7 +49,7 @@ private:
     static constexpr auto valid_types =
         std::array{ task_type::configuration, task_type::build, task_type::test, task_type::package };
     static constexpr auto preset_keys =
-        std::array{ "configurePresets"sv, "buildPresets"sv, "testPresets"sv, "testPresets"sv };
+        std::array{ "configurePresets"sv, "buildPresets"sv, "testPresets"sv, "packagePreset"sv};
 
     std::array<std::vector<preset_type>, std::to_underlying(task_type::DONE)> presets;
 
